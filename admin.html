@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="color-scheme" content="dark">
+<title>Făgăraș 2026 – Admin</title>
+<!--
+  Admin-Maske zum Hinzufügen/Löschen von Fotos für "Făgăraș 2026".
+  NICHT veröffentlichen (nicht ins GitHub-Pages-Repo legen, nicht verlinken) – lokal öffnen.
+  Schreibzugriff hat nur, wer ein GitHub-Token mit "Contents: Read and write" für das Repo besitzt.
+  Ablauf: Bild verkleinern (Canvas) -> Vollbild + Vorschau per GitHub Contents API hochladen ->
+  fotos.json ergänzen (GET mit sha, dann PUT).
+  Schema fotos.json: { "fotos": [ { id, tag, zeit:"HH:MM", zeitstempel:"TT.MM.JJJJ hh:mm", thumbUrl, fullUrl, beschreibung } ] }
+  Fotos mit gleichem Zeitstempel bilden auf der Seite einen Stapel (ein Vorschaubild mit Anzahl).
+  thumbUrl/fullUrl sind relativ zum Ordner von fotos.json.
+-->
+<style>
+  :root { --bg:#000; --fg:#fff; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#000; color:#fff; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; font-size:17px; line-height:1.5; }
+  .seite { max-width:760px; margin:0 auto; padding:20px 16px 40px; }
+  h1 { font-size:1.6rem; margin:0 0 4px; }
+  h2 { font-size:1.2rem; margin:0 0 10px; }
+  fieldset, section { border:1px solid #fff; border-radius:10px; padding:14px 16px 16px; margin:0 0 20px; }
+  legend { padding:0 8px; font-weight:700; }
+  label { display:block; margin:10px 0 4px; font-size:.95rem; }
+  input, select, button { font:inherit; color:#fff; background:#000; border:2px solid #fff; border-radius:8px; padding:8px 10px; min-height:44px; }
+  input[type=text], input[type=password], input[type=file], select { width:100%; }
+  input[aria-invalid=true] { border-style:dashed; }
+  input[type=checkbox] { min-height:0; width:20px; height:20px; vertical-align:middle; margin-right:8px; }
+  button { cursor:pointer; font-weight:600; }
+  button.haupt { background:#fff; color:#000; }
+  button:disabled { opacity:.45; cursor:default; }
+  :focus-visible { outline:3px solid #fff; outline-offset:3px; }
+  .zeile { display:grid; grid-template-columns:1fr 1fr; gap:0 14px; }
+  .hinweis { font-size:.9rem; margin:6px 0 0; }
+  #meldung { min-height:1.6em; margin:10px 0 0; font-weight:600; }
+  #vorschau { max-width:100%; max-height:240px; border:2px solid #fff; border-radius:8px; margin-top:10px; display:none; }
+  ul.liste { list-style:none; padding:0; margin:0; }
+  ul.liste li { display:flex; gap:12px; align-items:center; border-top:1px solid #fff; padding:10px 0; }
+  ul.liste li:first-child { border-top:0; }
+  ul.liste img { width:56px; height:56px; object-fit:cover; border-radius:50%; border:2px solid #fff; background:#222; flex:0 0 auto; }
+  ul.liste .txt { flex:1 1 auto; font-size:.95rem; }
+  @media (max-width:560px) { .zeile { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="seite">
+  <h1>Făgăraș 2026 – Foto-Admin</h1>
+  <p class="hinweis">Nur für den Admin. Diese Datei nicht veröffentlichen. Ohne gültiges GitHub-Token kann nichts geschrieben werden.</p>
+
+  <fieldset style="margin-top:18px">
+    <legend>1. GitHub-Zugang</legend>
+    <div class="zeile">
+      <div><label for="owner">Benutzer / Organisation</label><input type="text" id="owner" autocomplete="off" placeholder="DEIN-NAME"></div>
+      <div><label for="repo">Repository</label><input type="text" id="repo" autocomplete="off" placeholder="DEIN-REPO"></div>
+    </div>
+    <div class="zeile">
+      <div><label for="branch">Branch</label><input type="text" id="branch" autocomplete="off" value="main"></div>
+      <div><label for="jsonPfad">Pfad der Fotoliste im Repo</label><input type="text" id="jsonPfad" autocomplete="off" value="fotos.json"></div>
+    </div>
+    <label for="ordner">Bilderordner (relativ zum Ordner der Fotoliste)</label>
+    <input type="text" id="ordner" autocomplete="off" value="fotos">
+    <label for="token">GitHub-Token</label>
+    <input type="password" id="token" autocomplete="off" spellcheck="false" placeholder="github_pat_…">
+    <label><input type="checkbox" id="merken">Token nur für diese Browser-Sitzung merken</label>
+    <p class="hinweis">Token: „Fine-grained personal access token“, nur für dieses Repository, Berechtigung „Contents: Read and write“. Benutzer, Repository, Branch und Pfade werden lokal im Browser gemerkt, das Token nie dauerhaft.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>2. Foto hinzufügen</legend>
+    <label for="datei">Ein oder mehrere Fotos (JPEG empfohlen)</label>
+    <input type="file" id="datei" accept="image/*" multiple>
+    <img id="vorschau" alt="Vorschau des ersten gewählten Fotos">
+    <p class="hinweis" id="anzahlHinweis"></p>
+    <label for="stempel">Zeitstempel (TT.MM.JJJJ hh:mm, lokale Zeit der Wanderung)</label>
+    <input type="text" id="stempel" inputmode="numeric" autocomplete="off" placeholder="07.09.2026 10:15" aria-describedby="stempelHinweis">
+    <p class="hinweis" id="stempelHinweis">Gilt für alle gewählten Fotos: An dieser Stelle erscheint ein Vorschaubild, bei mehreren Fotos mit Anzahl. Wird, falls im ersten Foto gespeichert (EXIF), automatisch vorbelegt.</p>
+    <label for="text">Bildunterschrift (optional)</label>
+    <input type="text" id="text" maxlength="200" autocomplete="off">
+    <p style="margin:16px 0 0"><button type="button" class="haupt" id="senden" disabled>Hochladen und speichern</button></p>
+    <p id="meldung" role="status" aria-live="polite"></p>
+  </fieldset>
+
+  <section aria-labelledby="listeTitel">
+    <h2 id="listeTitel">3. Vorhandene Fotos</h2>
+    <p style="margin:0 0 10px"><button type="button" id="laden">Liste von GitHub laden</button></p>
+    <ul class="liste" id="liste"></ul>
+  </section>
+</div>
+
+<script>
+"use strict";
+const START = { jahr: 2026, monat: 9, tag: 5 };
+const TAGE = 7;
+const $ = (id) => document.getElementById(id);
+const pad2 = (n) => (n < 10 ? "0" : "") + n;
+
+/* ---------- Einstellungen ---------- */
+const FELDER = ["owner", "repo", "branch", "jsonPfad", "ordner"];
+try {
+  FELDER.forEach((f) => { const v = localStorage.getItem("fg26_" + f); if (v) $(f).value = v; });
+  const t = sessionStorage.getItem("fg26_token");
+  if (t) { $("token").value = t; $("merken").checked = true; }
+} catch (e) { /* Speicher evtl. gesperrt */ }
+function speichereEinstellungen() {
+  try {
+    FELDER.forEach((f) => localStorage.setItem("fg26_" + f, $(f).value.trim()));
+    if ($("merken").checked) sessionStorage.setItem("fg26_token", $("token").value.trim());
+    else sessionStorage.removeItem("fg26_token");
+  } catch (e) { /* ignorieren */ }
+}
+
+/* ---------- Zeitstempel ---------- */
+function parseStempel(txt) {
+  const m = /^\s*(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(\d{1,2}):(\d{2})\s*$/.exec(txt || "");
+  if (!m) return null;
+  const T = +m[1], M = +m[2], J = +m[3], h = +m[4], mi = +m[5];
+  const d = new Date(J, M - 1, T);
+  if (d.getFullYear() !== J || d.getMonth() !== M - 1 || d.getDate() !== T || h > 23 || mi > 59) return null;
+  const tag = Math.round((d - new Date(START.jahr, START.monat - 1, START.tag)) / 86400000) + 1;
+  if (tag < 1 || tag > TAGE) return { fehler: "Datum liegt außerhalb der Wanderung (Tag 1 = 05.09.2026 bis Tag 7 = 11.09.2026)." };
+  return { tag, zeit: pad2(h) + ":" + pad2(mi), text: pad2(T) + "." + pad2(M) + "." + J + " " + pad2(h) + ":" + pad2(mi) };
+}
+function pruefeStempel() {
+  const v = $("stempel").value.trim(), h = $("stempelHinweis");
+  if (!v) { $("stempel").removeAttribute("aria-invalid"); return null; }
+  const r = parseStempel(v);
+  if (!r || r.fehler) { $("stempel").setAttribute("aria-invalid", "true"); h.textContent = r ? r.fehler : "Bitte im Format TT.MM.JJJJ hh:mm eintragen, z. B. 07.09.2026 10:15."; return null; }
+  $("stempel").removeAttribute("aria-invalid");
+  h.textContent = "Wird Tag " + r.tag + ", " + r.zeit + " Uhr zugeordnet.";
+  return r;
+}
+
+function meldung(text, fehler) { const m = $("meldung"); m.textContent = (fehler ? "Fehler: " : "") + text; }
+function bereit() { $("senden").disabled = !($("datei").files.length && parseStempel($("stempel").value) && !parseStempel($("stempel").value).fehler && $("token").value.trim() && $("owner").value.trim() && $("repo").value.trim()); }
+["datei", "stempel", "token", "owner", "repo"].forEach((id) => { $(id).addEventListener("input", bereit); $(id).addEventListener("change", bereit); });
+$("stempel").addEventListener("input", pruefeStempel);
+
+/* ---------- EXIF (DateTimeOriginal) ---------- */
+function exifZeit(buf) {
+  try {
+    const v = new DataView(buf);
+    if (v.getUint16(0) !== 0xFFD8) return null;
+    let o = 2;
+    while (o < v.byteLength - 4) {
+      const marker = v.getUint16(o); o += 2;
+      if (marker === 0xFFDA) break;
+      const len = v.getUint16(o);
+      if (marker === 0xFFE1 && v.getUint32(o + 2) === 0x45786966) {
+        const t = o + 8, le = v.getUint16(t) === 0x4949;
+        const g16 = (p) => v.getUint16(p, le), g32 = (p) => v.getUint32(p, le);
+        const suche = (ifd, tag) => {
+          const n = g16(ifd);
+          for (let i = 0; i < n; i++) {
+            const e = ifd + 2 + i * 12;
+            if (g16(e) === tag) return e;
+          }
+          return null;
+        };
+        const text = (e) => {
+          const cnt = g32(e + 4), p = t + g32(e + 8);
+          let s = ""; for (let i = 0; i < cnt - 1; i++) s += String.fromCharCode(v.getUint8(p + i));
+          return s;
+        };
+        const ifd0 = t + g32(t + 4);
+        const ex = suche(ifd0, 0x8769);
+        if (ex) {
+          const e = suche(t + g32(ex + 8), 0x9003);
+          if (e) return text(e);
+        }
+        const e2 = suche(ifd0, 0x0132);
+        if (e2) return text(e2);
+        return null;
+      }
+      o += len;
+    }
+  } catch (e) { /* kein EXIF */ }
+  return null;
+}
+
+$("datei").addEventListener("change", async () => {
+  const fs = Array.from($("datei").files);
+  const pv = $("vorschau");
+  if (!fs.length) { pv.style.display = "none"; $("anzahlHinweis").textContent = ""; bereit(); return; }
+  pv.src = URL.createObjectURL(fs[0]); pv.style.display = "block";
+  $("anzahlHinweis").textContent = fs.length + (fs.length === 1 ? " Foto gewählt." : " Fotos gewählt – sie erscheinen als ein Vorschaubild mit Anzahl.");
+  const s = exifZeit(await fs[0].arrayBuffer());
+  const m = s && /^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2})/.exec(s);
+  if (m) {
+    $("stempel").value = m[3] + "." + m[2] + "." + m[1] + " " + m[4] + ":" + m[5];
+    const r = pruefeStempel();
+    if (r) $("stempelHinweis").textContent += " Aus dem ersten Foto übernommen – bitte prüfen (muss der lokalen Zeit der Wanderung entsprechen).";
+  } else if (!$("stempel").value.trim()) {
+    $("stempelHinweis").textContent = "Keine Aufnahmezeit im Foto gefunden – bitte den Zeitstempel selbst eintragen (TT.MM.JJJJ hh:mm).";
+  }
+  bereit();
+});
+
+/* ---------- Bildverarbeitung ---------- */
+function ladeBild(file) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => res(img);
+    img.onerror = () => rej(new Error("Bild konnte nicht gelesen werden (Format?)"));
+    img.src = url;
+  });
+}
+function skaliere(img, maxSeite, quadrat, qualitaet) {
+  const c = document.createElement("canvas"), w = img.naturalWidth, h = img.naturalHeight;
+  let sx = 0, sy = 0, sw = w, sh = h, dw, dh;
+  if (quadrat) { const s = Math.min(w, h); sx = (w - s) / 2; sy = (h - s) / 2; sw = sh = s; dw = dh = maxSeite; }
+  else { const f = Math.min(1, maxSeite / Math.max(w, h)); dw = Math.round(w * f); dh = Math.round(h * f); }
+  c.width = dw; c.height = dh;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#000"; ctx.fillRect(0, 0, dw, dh);
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, dw, dh);
+  return new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error("Bild konnte nicht umgewandelt werden"))), "image/jpeg", qualitaet));
+}
+function blobZuBase64(blob) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result).split(",")[1]);
+    r.onerror = () => rej(new Error("Datei lesen fehlgeschlagen"));
+    r.readAsDataURL(blob);
+  });
+}
+const textZuBase64 = (s) => { const b = new TextEncoder().encode(s); let bin = ""; b.forEach((x) => { bin += String.fromCharCode(x); }); return btoa(bin); };
+const base64ZuText = (b64) => { const bin = atob(b64.replace(/\s/g, "")); const a = Uint8Array.from(bin, (c) => c.charCodeAt(0)); return new TextDecoder().decode(a); };
+
+/* ---------- GitHub API ---------- */
+function cfg() {
+  const c = { owner: $("owner").value.trim(), repo: $("repo").value.trim(), branch: $("branch").value.trim() || "main",
+    json: $("jsonPfad").value.trim().replace(/^\/+/, ""), ordner: $("ordner").value.trim().replace(/^\/+|\/+$/g, ""), token: $("token").value.trim() };
+  const i = c.json.lastIndexOf("/");
+  c.dir = i >= 0 ? c.json.slice(0, i + 1) : "";
+  return c;
+}
+async function api(c, methode, pfad, body) {
+  const url = "https://api.github.com/repos/" + encodeURIComponent(c.owner) + "/" + encodeURIComponent(c.repo) + "/contents/" +
+    pfad.split("/").map(encodeURIComponent).join("/") + (methode === "GET" ? "?ref=" + encodeURIComponent(c.branch) + "&t=" + Date.now() : "");
+  const r = await fetch(url, {
+    method: methode,
+    headers: { Authorization: "Bearer " + c.token, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if (r.status === 404 && methode === "GET") return null;
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error((j && j.message) || ("HTTP " + r.status)); e.status = r.status; throw e; }
+  return j;
+}
+async function ladeListe(c) {
+  const j = await api(c, "GET", c.json);
+  if (!j) return { daten: { fotos: [] }, sha: null };
+  let daten;
+  try { daten = JSON.parse(base64ZuText(j.content)); } catch (e) { throw new Error(c.json + " ist kein gültiges JSON"); }
+  if (!daten || !Array.isArray(daten.fotos)) daten = { fotos: [] };
+  return { daten, sha: j.sha };
+}
+async function speichereListe(c, daten, sha, nachricht) {
+  const body = { message: nachricht, content: textZuBase64(JSON.stringify(daten, null, 2) + "\n"), branch: c.branch };
+  if (sha) body.sha = sha;
+  return api(c, "PUT", c.json, body);
+}
+/* Liste ändern mit einem Wiederholungsversuch bei Konflikt (409/422) */
+async function aendereListe(c, funktion, nachricht) {
+  for (let versuch = 0; versuch < 2; versuch++) {
+    const { daten, sha } = await ladeListe(c);
+    funktion(daten);
+    try { await speichereListe(c, daten, sha, nachricht); return daten; }
+    catch (e) { if (versuch === 0 && (e.status === 409 || e.status === 422)) continue; throw e; }
+  }
+}
+
+/* ---------- Hochladen ---------- */
+$("senden").addEventListener("click", async () => {
+  const c = cfg(), fs = Array.from($("datei").files), st = parseStempel($("stempel").value);
+  const text = $("text").value.trim();
+  if (!fs.length || !st || st.fehler) return;
+  $("senden").disabled = true;
+  speichereEinstellungen();
+  const eintraege = [];
+  try {
+    for (let i = 0; i < fs.length; i++) {
+      const nr = "(" + (i + 1) + "/" + fs.length + ") ";
+      meldung(nr + "Bild wird verkleinert …");
+      const img = await ladeBild(fs[i]);
+      const gross = await skaliere(img, 1800, false, 0.85);
+      const klein = await skaliere(img, 200, true, 0.8);
+      const id = st.tag + "-" + st.zeit.replace(":", "") + "-" + Date.now().toString(36) + "-" + (i + 1);
+      const relGross = c.ordner + "/" + id + ".jpg", relKlein = c.ordner + "/" + id + "_t.jpg";
+      meldung(nr + "Vollbild wird hochgeladen …");
+      await api(c, "PUT", c.dir + relGross, { message: "Foto hinzufügen: " + id, content: await blobZuBase64(gross), branch: c.branch });
+      meldung(nr + "Vorschau wird hochgeladen …");
+      await api(c, "PUT", c.dir + relKlein, { message: "Vorschau hinzufügen: " + id, content: await blobZuBase64(klein), branch: c.branch });
+      eintraege.push({ id, tag: st.tag, zeit: st.zeit, zeitstempel: st.text, thumbUrl: relKlein, fullUrl: relGross, beschreibung: text });
+    }
+    meldung("Fotoliste wird aktualisiert …");
+    await aendereListe(c, (d) => { eintraege.forEach((e) => d.fotos.push(e)); }, "Fotoliste: " + eintraege.length + " Foto(s) " + st.text);
+    meldung("Gespeichert (" + eintraege.length + (eintraege.length === 1 ? " Foto" : " Fotos") + "). Sie erscheinen nach dem nächsten Laden der Seite (bei GitHub Pages nach ca. 1 Minute).");
+    $("datei").value = ""; $("vorschau").style.display = "none"; $("anzahlHinweis").textContent = ""; $("text").value = ""; $("stempel").value = "";
+    $("stempelHinweis").textContent = "Gilt für alle gewählten Fotos: An dieser Stelle erscheint ein Vorschaubild, bei mehreren Fotos mit Anzahl.";
+    zeigeListe();
+  } catch (e) {
+    meldung(e.message + (e.status === 401 || e.status === 403 ? " – Token oder Berechtigung prüfen." : "") +
+      (eintraege.length ? " (" + eintraege.length + " Bild(er) waren schon hochgeladen, aber noch nicht in der Fotoliste; bitte den Vorgang wiederholen.)" : ""), true);
+  }
+  bereit();
+});
+
+/* ---------- Liste / Löschen ---------- */
+async function zeigeListe() {
+  const c = cfg(), ul = $("liste");
+  if (!c.owner || !c.repo || !c.token) { ul.innerHTML = "<li>Bitte zuerst GitHub-Zugang ausfüllen.</li>"; return; }
+  ul.innerHTML = "<li>Lade …</li>";
+  try {
+    const { daten } = await ladeListe(c);
+    ul.innerHTML = "";
+    if (!daten.fotos.length) { ul.innerHTML = "<li>Noch keine Fotos.</li>"; return; }
+    daten.fotos.slice().sort((a, b) => a.tag - b.tag || String(a.zeit).localeCompare(String(b.zeit))).forEach((f) => {
+      const stempel = f.zeitstempel || ("Tag " + f.tag + ", " + f.zeit + " Uhr");
+      const li = document.createElement("li");
+      const img = document.createElement("img");
+      img.alt = ""; img.src = "https://raw.githubusercontent.com/" + c.owner + "/" + c.repo + "/" + c.branch + "/" + c.dir + f.thumbUrl + "?t=" + Date.now();
+      img.onerror = () => { img.style.visibility = "hidden"; };
+      const t = document.createElement("div"); t.className = "txt";
+      t.textContent = stempel + " (Tag " + f.tag + ")" + (f.beschreibung ? " – " + f.beschreibung : "");
+      const b = document.createElement("button"); b.type = "button"; b.textContent = "Löschen";
+      b.setAttribute("aria-label", "Foto löschen: " + stempel);
+      b.addEventListener("click", () => loesche(f));
+      li.append(img, t, b); ul.appendChild(li);
+    });
+  } catch (e) { ul.innerHTML = ""; meldung(e.message, true); }
+}
+async function loesche(f) {
+  if (!window.confirm("Foto vom " + (f.zeitstempel || ("Tag " + f.tag + ", " + f.zeit + " Uhr")) + " wirklich löschen?")) return;
+  const c = cfg();
+  try {
+    meldung("Eintrag wird entfernt …");
+    await aendereListe(c, (d) => { d.fotos = d.fotos.filter((x) => x.id !== f.id); }, "Foto entfernen: " + f.id);
+    for (const rel of [f.fullUrl, f.thumbUrl]) {
+      const info = await api(c, "GET", c.dir + rel);
+      if (info && info.sha) await api(c, "DELETE", c.dir + rel, { message: "Datei löschen: " + rel, sha: info.sha, branch: c.branch });
+    }
+    meldung("Foto gelöscht.");
+  } catch (e) { meldung(e.message, true); }
+  zeigeListe();
+}
+$("laden").addEventListener("click", () => { speichereEinstellungen(); zeigeListe(); });
+bereit();
+</script>
+</body>
+</html>
