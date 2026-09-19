@@ -1,1 +1,13 @@
-{ "fotos": [] }
+{
+  "fotos": [
+    {
+      "id": "1-0930-mu8u6pkg-1",
+      "tag": 1,
+      "zeit": "09:30",
+      "zeitstempel": "05.09.2026 09:30",
+      "thumbUrl": "fotos/1-0930-mu8u6pkg-1_t.jpg",
+      "fullUrl": "fotos/1-0930-mu8u6pkg-1.jpg",
+      "beschreibung": "Aufbruch bei bester Laune in Sebeșu de Sus"
+    }
+  ]
+}
