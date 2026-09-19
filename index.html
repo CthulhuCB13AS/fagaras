@@ -142,7 +142,7 @@
   </div>
 </main>
 
-<footer>Făgăraș 2026 – Kammwanderung durch die Karpaten</footer>
+<footer>Făgăraș 2026 – Kammwanderung durch die Karpaten<div id="fotoHinweis" hidden style="font-size:.7rem;opacity:.7"></div></footer>
 
 <div id="status" class="sr-only" role="status" aria-live="polite"></div>
 
@@ -197,7 +197,7 @@
 X_ACHSE      = "zeit"   // "zeit" (Standard) oder "km" (Distanz der Uhr)
 PX_PRO_STUNDE = 240     // Breite pro Stunde (X_ACHSE "zeit"); PX_PRO_KM = 200 bei "km"
                         // jeder Tag ist mind. so breit wie der Bildschirm
-FOTOS_JSON_URL = "fotos.json"   // oder raw.githubusercontent.com-URL
+FOTOS_JSON_URL = "fotos.json"   // zuerst relativ zur Seite; danach FOTOS_JSON_ALT (raw.githubusercontent.com)
 
 hoehenDaten  = [{ tag: 1..7, km: Strecke im Tag (Uhr), hoehe: m,
                   zeit: "HH:MM" (lokal, UTC+3), luecke?: true }]
@@ -250,7 +250,8 @@ const X_ACHSE = "zeit";     // "zeit" (Standard: gleichmäßig, ohne Sprünge) o
 const PX_PRO_STUNDE = 240;  // Breite pro Stunde bei X_ACHSE = "zeit" (mind. aber eine Bildschirmbreite je Tag)
 const PX_PRO_KM = 200;      // Breite pro Kilometer bei X_ACHSE = "km"
 const LUECKE = 84;          // Abstand zwischen den Tagen in px (Nacht)
-const FOTOS_JSON_URL = "fotos.json";
+const FOTOS_JSON_URL = "fotos.json";   // zuerst relativ zur Seite (GitHub Pages)
+const FOTOS_JSON_ALT = "https://raw.githubusercontent.com/cthulhucb13as/fagaras/main/fotos.json";   // Ersatz, z. B. wenn die Seite lokal (file://) geöffnet wird
 /* Alternative bei Hosting ohne GitHub Pages:
    "https://raw.githubusercontent.com/DEIN-NAME/DEIN-REPO/main/fotos.json" */
 
@@ -1450,19 +1451,30 @@ $("overlay").addEventListener("touchend", (e) => {
    FOTOS LADEN
    ===================================================================== */
 
+async function ladeFotoListe(quelle) {
+  const url = quelle + (quelle.indexOf("?") >= 0 ? "&" : "?") + "t=" + Date.now();
+  const r = await fetch(url, { cache: "no-store" });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  const j = await r.json();
+  const basis = new URL(quelle, location.href);
+  return (j.fotos || []).filter((f) => f && f.tag >= 1 && f.tag <= TAGE_ANZAHL && /^\d{1,2}:\d{2}$/.test(f.zeit) && f.thumbUrl && f.fullUrl)
+    .map((f) => ({ id: String(f.id), tag: Number(f.tag), zeit: f.zeit, beschreibung: f.beschreibung || "",
+      thumbUrl: new URL(f.thumbUrl, basis).href, fullUrl: new URL(f.fullUrl, basis).href }));
+}
 async function ladeFotos() {
-  try {
-    const url = FOTOS_JSON_URL + (FOTOS_JSON_URL.indexOf("?") >= 0 ? "&" : "?") + "t=" + Date.now();
-    const r = await fetch(url, { cache: "no-store" });
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    const j = await r.json();
-    const basis = new URL(FOTOS_JSON_URL, location.href);
-    fotoDaten = (j.fotos || []).filter((f) => f && f.tag >= 1 && f.tag <= TAGE_ANZAHL && /^\d{1,2}:\d{2}$/.test(f.zeit) && f.thumbUrl && f.fullUrl)
-      .map((f) => ({ id: String(f.id), tag: Number(f.tag), zeit: f.zeit, beschreibung: f.beschreibung || "",
-        thumbUrl: new URL(f.thumbUrl, basis).href, fullUrl: new URL(f.fullUrl, basis).href }));
-  } catch (err) {
-    fotoDaten = [];
+  const fehler = [];
+  fotoDaten = [];
+  for (const q of [FOTOS_JSON_URL, FOTOS_JSON_ALT]) {
+    if (!q) continue;
+    try {
+      const l = await ladeFotoListe(q);
+      if (l.length) { fotoDaten = l; break; }
+    } catch (err) { fehler.push(q + ": " + err.message); }
   }
+  /* Nur bei echtem Ladefehler (beide Quellen) ein kleiner Hinweis in der Fußzeile */
+  const hinweis = $("fotoHinweis");
+  hinweis.textContent = (!fotoDaten.length && fehler.length >= 2) ? "Fotoliste nicht erreichbar (" + fehler.join("; ") + ")" : "";
+  hinweis.hidden = !hinweis.textContent;
   zeichne();
 }
 
