@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Făgăraș 2026</title>
+<!--
+  Făgăraș 2026 – Wanderseite (eine Datei, kein Framework).
+  Datenquellen: hoehenDaten, gewichtDaten (unten im Skript), Fotos aus fotos.json (siehe FOTOS_JSON_URL).
+  Fotos werden ausschließlich über admin.html (nur für den Admin) hinzugefügt. Details: Button "Doku".
+-->
+<style>
+  :root { --bg:#000; --fg:#fff; --rudi:#4dd9e8; --abstand:20px; }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", "Times New Roman", serif;
+    font-size: 17px; line-height: 1.5;
+  }
+  .sr-only { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+  .skip-link { position:absolute; left:8px; top:-60px; background:#fff; color:#000; padding:10px 16px; z-index:300; font-weight:700; border-radius:6px; }
+  .skip-link:focus { top:8px; }
+  :focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+
+  header.kopf { padding: 14px var(--abstand) 4px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .kopf-knoepfe { display:flex; gap:8px; flex:0 0 auto; }
+  .doku-btn {
+    background:#000; border:1px solid #fff; border-radius:999px; padding:2px 14px;
+    font-size:.875rem; min-height:32px; flex:0 0 auto;
+  }
+  h1 { margin: 0; font-size: 2rem; line-height: 1.15; letter-spacing:.02em; }
+  main { padding: 0 0 8px; }
+    .legende { display:flex; flex-wrap:wrap; gap:6px 20px; margin:10px var(--abstand) 8px; padding:0; list-style:none; font-size:.875rem; }
+  .legende li { display:flex; align-items:center; gap:8px; }
+  .legende svg { width:34px; height:14px; overflow:visible; flex:0 0 auto; }
+
+  /* Diagramm */
+  .scroller {
+    position: relative; overflow-x: auto; overflow-y: hidden;
+    -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
+    scrollbar-width: none; -ms-overflow-style: none;
+  }
+  .scroller::-webkit-scrollbar { display:none; }
+  .strip { position: relative; }
+  .strip svg { display:block; touch-action: pan-x pan-y; cursor: crosshair; }
+  svg text { fill:#fff; font-family: inherit; }
+  .tagband { position:absolute; left:0; top:0; pointer-events:none; }
+  .tag-tafel { position:absolute; top:0; }
+  .tag-label { position:sticky; left:0; display:inline-block; padding:4px 0 0 10px; font-size:15px; font-weight:700; white-space:nowrap; }
+
+  .fotoband { position:absolute; left:0; top:0; }
+  .foto-item { position:absolute; }
+  .foto {
+    display:block; width:100%; height:100%; padding:0; border:2px solid #fff; border-radius:50%;
+    overflow:hidden; background:#222;
+  }
+  .foto img { width:100%; height:100%; object-fit:cover; display:block; }
+  .foto-anzahl {
+    position:absolute; right:-3px; bottom:-3px; min-width:20px; height:20px; padding:0 5px; border-radius:10px;
+    background:#fff; color:#000; font-size:12px; font-weight:700; line-height:20px; text-align:center; pointer-events:none;
+  }
+  .ov-zaehler { position:absolute; top:22px; left:0; right:0; text-align:center; font-size:.95rem; pointer-events:none; text-shadow:0 0 6px #000; }
+
+  .info {
+    position:absolute; z-index:5; background:#000; border:1px solid #fff; border-radius:8px;
+    padding:8px 12px; font-size:15px; line-height:1.45; white-space:nowrap; pointer-events:none;
+  }
+  .info[hidden] { display:none; }
+  .info strong { display:block; }
+
+  footer { padding: 18px var(--abstand) 30px; font-size:.8rem; text-align:center; }
+
+  /* Dialoge */
+  .overlay { position:fixed; inset:0; z-index:200; background:#000; display:flex; align-items:center; justify-content:center; }
+  .overlay[hidden] { display:none; }
+  #ovBild { width:100%; height:100%; object-fit:contain; display:block; background:#000; }
+  .ov-text {
+    position:absolute; left:0; right:0; bottom:0; pointer-events:none; margin:0; padding:36px 72px 18px; text-align:center;
+    background:linear-gradient(to top, rgba(0,0,0,.85), rgba(0,0,0,0)); font-size:1rem;
+  }
+  .knopf { background:rgba(0,0,0,.7); border:2px solid #fff; border-radius:50%; width:52px; height:52px; font-size:1.7rem; line-height:1; padding:0; position:absolute; z-index:2; }
+  .ov-x { top:10px; right:10px; width:40px; height:40px; font-size:1.4rem; border-width:1.5px; }
+  .ov-prev { left:10px; top:50%; transform:translateY(-50%); }
+  .ov-next { right:10px; top:50%; transform:translateY(-50%); }
+  .knopf[disabled] { opacity:.35; cursor:default; }
+
+  .doku-panel { display:block; overflow-y:auto; overflow-x:hidden; }
+  .doku-panel[hidden] { display:none; }
+  .doku-inhalt { max-width:760px; margin:0 auto; padding:64px 20px 40px; }
+  .doku-inhalt h2 { font-size:1.3rem; margin:0 0 8px; }
+  .doku-inhalt h3 { font-size:1.05rem; margin:22px 0 6px; }
+  .doku-inhalt p, .doku-inhalt li { font-size:.98rem; }
+  .doku-inhalt code, .doku-inhalt pre { font-family: ui-monospace, Menlo, Consolas, monospace; font-size:.85rem; }
+  .doku-inhalt pre { border:1px solid #fff; border-radius:8px; padding:10px 12px; overflow-x:auto; }
+  .doku-inhalt ul { padding-left:20px; margin:6px 0; }
+  .doku-panel .knopf { position:fixed; }
+  .stats-inhalt dl { margin:14px 0 0; }
+  .stats-inhalt .zeile { display:flex; justify-content:space-between; gap:16px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,.35); }
+  .stats-inhalt dt { font-size:1rem; }
+  .stats-inhalt dd { margin:0; font-size:1.05rem; font-weight:700; text-align:right; }
+  .stats-inhalt dd small { display:block; font-weight:400; font-size:.8rem; }
+  .stats-inhalt .fussnote { font-size:.85rem; margin-top:16px; }
+
+  @media (max-width: 768px) {
+    :root { --abstand: 14px; }
+    body { font-size:16px; }
+    h1 { font-size:1.6rem; }
+    .ov-text { padding-left:16px; padding-right:16px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { scroll-behavior:auto !important; transition:none !important; } }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#scroller">Zum Diagramm springen</a>
+
+<header class="kopf">
+  <h1>Făgăraș 2026</h1>
+  <div class="kopf-knoepfe">
+    <button type="button" class="doku-btn" id="statsBtn" aria-haspopup="dialog" aria-label="Statistik öffnen">Stats</button>
+    <button type="button" class="doku-btn" id="dokuBtn" aria-haspopup="dialog" aria-label="Dokumentation öffnen">Doku</button>
+  </div>
+</header>
+
+<main id="hauptinhalt">
+    <ul class="legende" id="legende"></ul>
+
+  <div class="scroller" id="scroller" tabindex="0" role="region"
+       aria-label="Höhenprofil, Rucksackgewicht und Fotos aller sieben Tage, seitlich scrollbar">
+    <div class="strip" id="strip">
+      <svg id="svg" focusable="false"></svg>
+      <div class="tagband" id="tagband"></div>
+      <div class="fotoband" id="fotoband" role="list" aria-label="Fotos"></div>
+      <div class="info" id="info" hidden role="status"></div>
+    </div>
+  </div>
+</main>
+
+<footer>Făgăraș 2026 – Kammwanderung durch die Karpaten</footer>
+
+<div id="status" class="sr-only" role="status" aria-live="polite"></div>
+
+<!-- Foto-Vollbild -->
+<div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-label="Foto" hidden>
+  <img id="ovBild" alt="">
+  <div class="ov-zaehler" id="ovZaehler" hidden></div>
+  <p class="ov-text" id="ovText" hidden></p>
+  <button type="button" class="knopf ov-x" id="ovX" aria-label="Foto schließen">&times;</button>
+  <button type="button" class="knopf ov-prev" id="ovPrev" aria-label="Vorheriges Foto">&lsaquo;</button>
+  <button type="button" class="knopf ov-next" id="ovNext" aria-label="Nächstes Foto">&rsaquo;</button>
+</div>
+
+<!-- Stats -->
+<div class="overlay doku-panel" id="stats" role="dialog" aria-modal="true" aria-labelledby="statsTitel" hidden>
+  <button type="button" class="knopf ov-x" id="statsX" aria-label="Statistik schließen">&times;</button>
+  <div class="doku-inhalt stats-inhalt">
+    <h2 id="statsTitel">Stats – Făgăraș 2026</h2>
+    <dl id="statsListe"></dl>
+    <p class="fussnote" id="statsHinweis"></p>
+  </div>
+</div>
+
+<!-- Doku -->
+<div class="overlay doku-panel" id="doku" role="dialog" aria-modal="true" aria-labelledby="dokuTitel" hidden>
+  <button type="button" class="knopf ov-x" id="dokuX" aria-label="Dokumentation schließen">&times;</button>
+  <div class="doku-inhalt">
+    <h2 id="dokuTitel">Doku – Făgăraș 2026</h2>
+
+    <h3>Was ist das?</h3>
+    <p>Eine einzelne HTML-Seite zur 7-tägigen Wanderung. Ein durchgehendes, seitlich scrollbares Diagramm zeigt für alle Tage das Höhenprofil (weiße Linie), darunter den Rucksackgewichtsverlauf von Olli (Kreise) und Rudi (Quadrate, türkis) und darüber runde Foto-Vorschauen (an der Aufnahmezeit, mit dünner gestrichelter Linie nach unten über beide Diagramme). Es gibt keine Achsen und kein Gitter; die Höhenskala beginnt beim tiefsten Punkt der Tour. Die Bildlaufleiste ist ausgeblendet.</p>
+
+    <h3>Bedienung</h3>
+    <ul>
+      <li>Seitlich wischen (Handy) bzw. scrollen / Shift + Mausrad / Trackpad (Desktop).</li>
+      <li>Stelle im Diagramm antippen oder klicken: dünner gestrichelter Strich (rastet im 5-Minuten-Abstand ein; Anfang und Ende jedes Tages sind immer wählbar; die Daten dahinter sind minutengenau; der nächstgelegene Wert wird angezeigt) mit Tag, Uhrzeit, Höhe, Strecke (gesamt seit Beginn Tag 1) und Rucksackgewicht (interpoliert). Erneut an anderer Stelle tippen verschiebt den Strich; erneut auf denselben Punkt tippen oder Esc blendet ihn aus.</li>
+      <li>Tastatur: Diagramm fokussieren (Tab), Enter setzt den Strich in die Bildmitte, Umschalt + Pfeil links/rechts verschiebt ihn um 5 Minuten.</li>
+      <li>Vorschaubild antippen: Vollbild, × oben rechts (oder Esc) schließt. Steht eine Zahl im Vorschaubild, liegen dort mehrere Fotos: mit Wischen (Handy) bzw. Pfeiltasten / Pfeilen (Bildschirm) durchblättern.</li>
+      <li>„Stats“ oben rechts: Aufstieg, Abstieg, Strecke, höchster Punkt sowie Zeit über 2.400 m und 2.300 m (aus den Uhrdaten berechnet).</li>
+    </ul>
+
+    <h3>Dateien</h3>
+    <ul>
+      <li><code>fagaras-2026.html</code> – diese Seite (öffentlich).</li>
+      <li><code>fotos.json</code> – Fotoliste, wird nur von <code>admin.html</code> geschrieben (GitHub).</li>
+      <li><code>fotos/</code> – Bilddateien (Vollbild und Vorschau), ebenfalls vom Admin hochgeladen.</li>
+      <li><code>admin.html</code> – Formular zum Hinzufügen/Löschen von Fotos. Nicht verlinkt und nicht veröffentlichen (lokal aufbewahren). Schreiben geht nur mit dem GitHub-Token des Admins.</li>
+    </ul>
+
+    <h3>Datenmodell (im Skript dieser Seite)</h3>
+    <pre>START_DATUM  = { jahr: 2026, monat: 9, tag: 5 }   // Tag 1
+X_ACHSE      = "zeit"   // "zeit" (Standard) oder "km" (Distanz der Uhr)
+PX_PRO_STUNDE = 240     // Breite pro Stunde (X_ACHSE "zeit"); PX_PRO_KM = 200 bei "km"
+                        // jeder Tag ist mind. so breit wie der Bildschirm
+FOTOS_JSON_URL = "fotos.json"   // oder raw.githubusercontent.com-URL
+
+hoehenDaten  = [{ tag: 1..7, km: Strecke im Tag (Uhr), hoehe: m,
+                  zeit: "HH:MM" (lokal, UTC+3), luecke?: true }]
+               // Minutenwerte der Uhr, Höhe je Tag um einen Versatz korrigiert
+               // luecke:true = ab hier fehlten Messwerte davor -> gestrichelt interpoliert
+               //             (Verlauf nach GPX-Form, an Anfang und Ende an die Uhrwerte angepasst)
+orteDaten    = [{ tag, zeit: "HH:MM", name, hoehe?, pos: "o"|"u"|"auto" }]  // beschriftete Orte auf der Höhenkurve
+
+gewichtDaten = [{ tag: 1..7, O_M, O_A, R_M, R_A }]  // kg, null = nicht gemessen</pre>
+
+    <h3>fotos.json</h3>
+    <pre>{ "fotos": [
+  { "id": "3-1032-k2x", "tag": 3, "zeit": "10:32", "zeitstempel": "07.09.2026 10:32",
+    "thumbUrl": "fotos/3-1032-k2x_t.jpg",
+    "fullUrl":  "fotos/3-1032-k2x.jpg",
+    "beschreibung": "optionale Bildunterschrift" }
+] }</pre>
+    <p>URLs sind relativ zur Lage von <code>fotos.json</code> oder absolut. Die Position im Diagramm ergibt sich aus <code>tag</code> und <code>zeit</code> (Interpolation zwischen den Höhenpunkten). Fotos mit gleichem <code>tag</code> und gleicher <code>zeit</code> bilden einen Stapel (ein Vorschaubild mit Anzahl).</p>
+
+    <h3>Darstellungsregeln</h3>
+    <ul>
+      <li>Tage sind durch dünne senkrechte Linien getrennt. Das Label „Tag N, TT.MM.JJJJ“ bleibt beim Scrollen links oben stehen, bis der nächste Tag erreicht ist. Jeder Tag ist mindestens eine Bildschirmbreite breit; zwischen den Tagen liegt ein fester Abstand (Nacht).</li>
+      <li>Die x-Achse ist die Uhrzeit (X_ACHSE = "zeit"), pro Tag von der ersten bis zur letzten Aufzeichnung, für Höhe und Gewicht dieselbe. Die Strecke (aufsummiert über alle Tage) wird nur in den Details des Striches und in Stats angezeigt.</li>
+      <li>Gewicht: „morgens“ am Tagesanfang, „abends“ am Tagesende, dazwischen sanfte S-Kurve (durchgezogen). Über Nacht sowie bei fehlenden Werten gestrichelt (= interpoliert).</li>
+      <li>Quelle der Höhen: Uhr-CSV (barometrisch), als Minutenmittel. Je Tag wurde ein konstanter Höhenversatz angewendet (Tag 1 +364,2 m, sodass das Tagesende der Höhe am Start von Tag 2 entspricht; Tag 2 +6,9 m, sodass das Ende bei 2.011 m liegt; Tag 3 +2,6 m; Tag 4 +60,4 m; Tag 5 −29,9 m; Tage 6 und 7 unverändert).</li>
+      <li>Gestrichelt = nicht gemessen: Aufzeichnungslücke an Tag 4 (Negoiu-Anstieg, ca. 10:06–11:20). Die Lücke folgt dem Verlauf der GPX-Spur (Komoot), ist aber an Anfang und Ende an die Uhrwerte angepasst. Sonst sind keine GPX-Daten eingezeichnet.</li>
+      <li>Die Höhenskala ist dynamisch: Sie passt sich beim Scrollen dem sichtbaren Ausschnitt an, sodass die Höhenlinie den Großteil der Höhe ausfüllt. Fotos oben und Gewichtslinie unten bleiben statisch. Beschriftete Orte (Gipfel, Hütten, Seen) stehen an der Kurve, die Höhe im Label ist der bekannte Wert.</li>
+      <li>Die Distanz der Uhr ist ohne GPS ungenau und meist zu niedrig; sie war der Grund für steile Sprünge bei X_ACHSE = "km". Für Tag 4 (Beginn) und die GPX-Ergänzungen wurde sie aus Zeit und Durchschnittstempo geschätzt.</li>
+    </ul>
+
+    <h3>Fotos hinzufügen (nur Admin)</h3>
+    <ol>
+      <li><code>admin.html</code> lokal im Browser öffnen, Repository-Angaben und GitHub-Token (fein granular, nur dieses Repo, „Contents: Read and write“) eintragen.</li>
+      <li>Ein oder mehrere Fotos wählen und den Zeitstempel (TT.MM.JJJJ hh:mm) eintragen – bei mehreren Fotos gilt er für alle, sie erscheinen als ein Vorschaubild mit Anzahl. Der Zeitstempel wird, falls vorhanden, aus den EXIF-Daten des ersten Fotos vorbelegt. Optional Bildunterschrift eingeben.</li>
+      <li>„Hochladen und speichern“: Bilder und <code>fotos.json</code> werden per GitHub-API committet. Die Seite zeigt das Foto nach dem nächsten Laden (bei GitHub Pages nach ca. 1 Minute).</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* =====================================================================
+   KONFIGURATION UND DATEN
+   ===================================================================== */
+
+const START_DATUM = { jahr: 2026, monat: 9, tag: 5 };   // Tag 1 = 05.09.2026
+const TAGE_ANZAHL = 7;
+const X_ACHSE = "zeit";     // "zeit" (Standard: gleichmäßig, ohne Sprünge) oder "km" (Distanz der Uhr, ungenau)
+const PX_PRO_STUNDE = 240;  // Breite pro Stunde bei X_ACHSE = "zeit" (mind. aber eine Bildschirmbreite je Tag)
+const PX_PRO_KM = 200;      // Breite pro Kilometer bei X_ACHSE = "km"
+const LUECKE = 84;          // Abstand zwischen den Tagen in px (Nacht)
+const FOTOS_JSON_URL = "fotos.json";
+/* Alternative bei Hosting ohne GitHub Pages:
+   "https://raw.githubusercontent.com/DEIN-NAME/DEIN-REPO/main/fotos.json" */
+
+/* Höhenprofil aus den CSV-Dateien der Uhr: Minutenmittel der Höhe (Barometer), zeit = lokale Zeit (UTC+3).
+   Höhenkorrektur je Tag (konstanter Versatz, damit bekannte Gipfel stimmen):
+   Tag 1 +364,2 m (Tagesende = Start Tag 2), Tag 2 +6,9 m (Ende 2.011 m), Tag 3 +2,6 m (2.306 m um 11:30), Tag 4 +60,4 m (2.535 m, Negoiu),
+   Tag 5 -29,9 m; Tage 6 und 7 unverändert.
+   luecke:true = Aufzeichnungslücke vor diesem Punkt (gestrichelt, Verlauf nach GPX-Form, Tag 4).
+
+   km = Distanz der Uhr ab Tagesbeginn (ohne GPS ungenau, meist deutlich zu niedrig). Tag 4 (Beginn) wurde
+   aus Zeit und Tempo geschätzt. */
+const hoehenDaten = [
+  {tag:1,km:0,hoehe:834,zeit:"09:25"}, {tag:1,km:0.024,hoehe:835,zeit:"09:29"}, {tag:1,km:0.035,hoehe:837,zeit:"09:30"}, {tag:1,km:0.08,hoehe:839,zeit:"09:31"},
+  {tag:1,km:0.146,hoehe:842,zeit:"09:32"}, {tag:1,km:0.195,hoehe:844,zeit:"09:33"}, {tag:1,km:0.265,hoehe:847,zeit:"09:34"}, {tag:1,km:0.312,hoehe:849,zeit:"09:35"},
+  {tag:1,km:0.386,hoehe:851,zeit:"09:36"}, {tag:1,km:0.446,hoehe:854,zeit:"09:37"}, {tag:1,km:0.492,hoehe:856,zeit:"09:38"}, {tag:1,km:0.541,hoehe:857,zeit:"09:39"},
+  {tag:1,km:0.584,hoehe:858,zeit:"09:40"}, {tag:1,km:0.688,hoehe:858,zeit:"09:41"}, {tag:1,km:0.796,hoehe:856,zeit:"09:42"}, {tag:1,km:0.858,hoehe:856,zeit:"09:43"},
+  {tag:1,km:0.93,hoehe:858,zeit:"09:44"}, {tag:1,km:0.936,hoehe:860,zeit:"09:45"}, {tag:1,km:0.936,hoehe:861,zeit:"09:48"}, {tag:1,km:0.937,hoehe:865,zeit:"09:49"},
+  {tag:1,km:0.937,hoehe:873,zeit:"09:50"}, {tag:1,km:0.937,hoehe:883,zeit:"09:51"}, {tag:1,km:0.948,hoehe:890,zeit:"09:52"}, {tag:1,km:0.948,hoehe:896,zeit:"09:53"},
+  {tag:1,km:0.948,hoehe:904,zeit:"09:54"}, {tag:1,km:0.948,hoehe:910,zeit:"09:55"}, {tag:1,km:0.949,hoehe:917,zeit:"09:57"}, {tag:1,km:0.949,hoehe:924,zeit:"09:58"},
+  {tag:1,km:0.949,hoehe:930,zeit:"09:59"}, {tag:1,km:0.949,hoehe:933,zeit:"10:00"}, {tag:1,km:0.949,hoehe:940,zeit:"10:01"}, {tag:1,km:0.95,hoehe:948,zeit:"10:02"},
+  {tag:1,km:0.95,hoehe:956,zeit:"10:03"}, {tag:1,km:0.951,hoehe:964,zeit:"10:04"}, {tag:1,km:0.952,hoehe:969,zeit:"10:05"}, {tag:1,km:0.973,hoehe:976,zeit:"10:06"},
+  {tag:1,km:0.98,hoehe:982,zeit:"10:07"}, {tag:1,km:0.981,hoehe:985,zeit:"10:08"}, {tag:1,km:0.981,hoehe:987,zeit:"10:10"}, {tag:1,km:0.982,hoehe:994,zeit:"10:11"},
+  {tag:1,km:0.982,hoehe:1004,zeit:"10:12"}, {tag:1,km:0.982,hoehe:1011,zeit:"10:13"}, {tag:1,km:1.028,hoehe:1015,zeit:"10:14"}, {tag:1,km:1.045,hoehe:1016,zeit:"10:15"},
+  {tag:1,km:1.08,hoehe:1018,zeit:"10:16"}, {tag:1,km:1.108,hoehe:1021,zeit:"10:17"}, {tag:1,km:1.134,hoehe:1024,zeit:"10:18"}, {tag:1,km:1.154,hoehe:1026,zeit:"10:19"},
+  {tag:1,km:1.186,hoehe:1030,zeit:"10:22"}, {tag:1,km:1.219,hoehe:1034,zeit:"10:23"}, {tag:1,km:1.223,hoehe:1039,zeit:"10:24"}, {tag:1,km:1.243,hoehe:1039,zeit:"10:25"},
+  {tag:1,km:1.285,hoehe:1039,zeit:"10:26"}, {tag:1,km:1.315,hoehe:1043,zeit:"10:27"}, {tag:1,km:1.354,hoehe:1048,zeit:"10:28"}, {tag:1,km:1.358,hoehe:1054,zeit:"10:29"},
+  {tag:1,km:1.36,hoehe:1060,zeit:"10:30"}, {tag:1,km:1.387,hoehe:1063,zeit:"10:32"}, {tag:1,km:1.39,hoehe:1069,zeit:"10:33"}, {tag:1,km:1.39,hoehe:1076,zeit:"10:34"},
+  {tag:1,km:1.39,hoehe:1084,zeit:"10:35"}, {tag:1,km:1.392,hoehe:1091,zeit:"10:36"}, {tag:1,km:1.394,hoehe:1097,zeit:"10:37"}, {tag:1,km:1.399,hoehe:1103,zeit:"10:38"},
+  {tag:1,km:1.399,hoehe:1108,zeit:"10:39"}, {tag:1,km:1.399,hoehe:1115,zeit:"10:40"}, {tag:1,km:1.399,hoehe:1122,zeit:"10:41"}, {tag:1,km:1.399,hoehe:1127,zeit:"10:42"},
+  {tag:1,km:1.399,hoehe:1130,zeit:"10:43"}, {tag:1,km:1.401,hoehe:1134,zeit:"10:45"}, {tag:1,km:1.404,hoehe:1141,zeit:"10:46"}, {tag:1,km:1.408,hoehe:1147,zeit:"10:47"},
+  {tag:1,km:1.422,hoehe:1151,zeit:"10:48"}, {tag:1,km:1.449,hoehe:1152,zeit:"10:49"}, {tag:1,km:1.48,hoehe:1150,zeit:"10:50"}, {tag:1,km:1.496,hoehe:1151,zeit:"10:51"},
+  {tag:1,km:1.519,hoehe:1153,zeit:"10:52"}, {tag:1,km:1.522,hoehe:1152,zeit:"10:57"}, {tag:1,km:1.522,hoehe:1153,zeit:"11:15"}, {tag:1,km:1.53,hoehe:1155,zeit:"11:18"},
+  {tag:1,km:1.532,hoehe:1160,zeit:"11:19"}, {tag:1,km:1.539,hoehe:1164,zeit:"11:20"}, {tag:1,km:1.556,hoehe:1167,zeit:"11:21"}, {tag:1,km:1.61,hoehe:1170,zeit:"11:22"},
+  {tag:1,km:1.636,hoehe:1173,zeit:"11:23"}, {tag:1,km:1.637,hoehe:1178,zeit:"11:24"}, {tag:1,km:1.679,hoehe:1183,zeit:"11:25"}, {tag:1,km:1.72,hoehe:1188,zeit:"11:26"},
+  {tag:1,km:1.722,hoehe:1192,zeit:"11:27"}, {tag:1,km:1.729,hoehe:1198,zeit:"11:32"}, {tag:1,km:1.738,hoehe:1207,zeit:"11:33"}, {tag:1,km:1.738,hoehe:1213,zeit:"11:34"},
+  {tag:1,km:1.745,hoehe:1216,zeit:"11:36"}, {tag:1,km:1.745,hoehe:1223,zeit:"11:37"}, {tag:1,km:1.745,hoehe:1230,zeit:"11:38"}, {tag:1,km:1.767,hoehe:1237,zeit:"11:39"},
+  {tag:1,km:1.787,hoehe:1244,zeit:"11:40"}, {tag:1,km:1.789,hoehe:1252,zeit:"11:41"}, {tag:1,km:1.801,hoehe:1260,zeit:"11:42"}, {tag:1,km:1.805,hoehe:1267,zeit:"11:43"},
+  {tag:1,km:1.805,hoehe:1271,zeit:"11:44"}, {tag:1,km:1.813,hoehe:1274,zeit:"11:47"}, {tag:1,km:1.819,hoehe:1281,zeit:"11:48"}, {tag:1,km:1.837,hoehe:1287,zeit:"11:49"},
+  {tag:1,km:1.863,hoehe:1292,zeit:"11:50"}, {tag:1,km:1.904,hoehe:1296,zeit:"11:51"}, {tag:1,km:1.91,hoehe:1301,zeit:"11:52"}, {tag:1,km:1.934,hoehe:1305,zeit:"11:53"},
+  {tag:1,km:1.935,hoehe:1309,zeit:"11:54"}, {tag:1,km:1.974,hoehe:1313,zeit:"11:55"}, {tag:1,km:2.013,hoehe:1317,zeit:"11:56"}, {tag:1,km:2.04,hoehe:1322,zeit:"11:57"},
+  {tag:1,km:2.064,hoehe:1329,zeit:"11:58"}, {tag:1,km:2.092,hoehe:1336,zeit:"11:59"}, {tag:1,km:2.136,hoehe:1342,zeit:"12:00"}, {tag:1,km:2.142,hoehe:1344,zeit:"12:05"},
+  {tag:1,km:2.157,hoehe:1348,zeit:"12:06"}, {tag:1,km:2.17,hoehe:1353,zeit:"12:07"}, {tag:1,km:2.19,hoehe:1355,zeit:"12:08"}, {tag:1,km:2.211,hoehe:1355,zeit:"12:09"},
+  {tag:1,km:2.265,hoehe:1354,zeit:"12:10"}, {tag:1,km:2.311,hoehe:1354,zeit:"12:11"}, {tag:1,km:2.32,hoehe:1359,zeit:"12:12"}, {tag:1,km:2.345,hoehe:1357,zeit:"12:13"},
+  {tag:1,km:2.352,hoehe:1352,zeit:"12:14"}, {tag:1,km:2.367,hoehe:1352,zeit:"12:15"}, {tag:1,km:2.367,hoehe:1353,zeit:"12:16"}, {tag:1,km:2.367,hoehe:1355,zeit:"12:18"},
+  {tag:1,km:2.376,hoehe:1358,zeit:"12:19"}, {tag:1,km:2.42,hoehe:1358,zeit:"12:20"}, {tag:1,km:2.472,hoehe:1358,zeit:"12:21"}, {tag:1,km:2.528,hoehe:1360,zeit:"12:22"},
+  {tag:1,km:2.531,hoehe:1365,zeit:"12:23"}, {tag:1,km:2.531,hoehe:1373,zeit:"12:24"}, {tag:1,km:2.531,hoehe:1378,zeit:"12:25"}, {tag:1,km:2.534,hoehe:1380,zeit:"12:36"},
+  {tag:1,km:2.538,hoehe:1384,zeit:"12:37"}, {tag:1,km:2.587,hoehe:1389,zeit:"12:38"}, {tag:1,km:2.59,hoehe:1392,zeit:"12:39"}, {tag:1,km:2.611,hoehe:1392,zeit:"12:40"},
+  {tag:1,km:2.652,hoehe:1392,zeit:"12:41"}, {tag:1,km:2.708,hoehe:1397,zeit:"12:42"}, {tag:1,km:2.739,hoehe:1404,zeit:"12:43"}, {tag:1,km:2.739,hoehe:1411,zeit:"12:44"},
+  {tag:1,km:2.741,hoehe:1418,zeit:"12:45"}, {tag:1,km:2.742,hoehe:1427,zeit:"12:46"}, {tag:1,km:2.742,hoehe:1434,zeit:"12:47"}, {tag:1,km:2.743,hoehe:1442,zeit:"12:48"},
+  {tag:1,km:2.743,hoehe:1449,zeit:"12:49"}, {tag:1,km:2.743,hoehe:1456,zeit:"12:50"}, {tag:1,km:2.756,hoehe:1463,zeit:"12:51"}, {tag:1,km:2.78,hoehe:1467,zeit:"12:52"},
+  {tag:1,km:2.782,hoehe:1470,zeit:"12:53"}, {tag:1,km:2.782,hoehe:1476,zeit:"12:54"}, {tag:1,km:2.785,hoehe:1485,zeit:"12:55"}, {tag:1,km:2.806,hoehe:1490,zeit:"12:56"},
+  {tag:1,km:2.865,hoehe:1494,zeit:"12:57"}, {tag:1,km:2.865,hoehe:1502,zeit:"12:58"}, {tag:1,km:2.866,hoehe:1509,zeit:"12:59"}, {tag:1,km:2.878,hoehe:1515,zeit:"13:00"},
+  {tag:1,km:2.878,hoehe:1523,zeit:"13:01"}, {tag:1,km:2.878,hoehe:1531,zeit:"13:02"}, {tag:1,km:2.921,hoehe:1532,zeit:"13:03"}, {tag:1,km:2.963,hoehe:1536,zeit:"13:04"},
+  {tag:1,km:2.963,hoehe:1545,zeit:"13:05"}, {tag:1,km:2.963,hoehe:1554,zeit:"13:06"}, {tag:1,km:2.987,hoehe:1562,zeit:"13:07"}, {tag:1,km:2.992,hoehe:1570,zeit:"13:08"},
+  {tag:1,km:2.996,hoehe:1578,zeit:"13:09"}, {tag:1,km:2.996,hoehe:1586,zeit:"13:10"}, {tag:1,km:2.996,hoehe:1594,zeit:"13:11"}, {tag:1,km:2.998,hoehe:1601,zeit:"13:12"},
+  {tag:1,km:3.003,hoehe:1604,zeit:"13:28"}, {tag:1,km:3.016,hoehe:1601,zeit:"13:33"}, {tag:1,km:3.028,hoehe:1604,zeit:"13:34"}, {tag:1,km:3.044,hoehe:1610,zeit:"13:35"},
+  {tag:1,km:3.059,hoehe:1616,zeit:"13:36"}, {tag:1,km:3.059,hoehe:1625,zeit:"13:37"}, {tag:1,km:3.059,hoehe:1630,zeit:"13:38"}, {tag:1,km:3.083,hoehe:1634,zeit:"13:39"},
+  {tag:1,km:3.092,hoehe:1639,zeit:"13:40"}, {tag:1,km:3.092,hoehe:1645,zeit:"13:41"}, {tag:1,km:3.092,hoehe:1652,zeit:"13:42"}, {tag:1,km:3.107,hoehe:1654,zeit:"13:43"},
+  {tag:1,km:3.108,hoehe:1662,zeit:"13:44"}, {tag:1,km:3.12,hoehe:1669,zeit:"13:45"}, {tag:1,km:3.126,hoehe:1677,zeit:"13:46"}, {tag:1,km:3.137,hoehe:1685,zeit:"13:47"},
+  {tag:1,km:3.145,hoehe:1690,zeit:"13:48"}, {tag:1,km:3.145,hoehe:1694,zeit:"13:49"}, {tag:1,km:3.146,hoehe:1699,zeit:"13:50"}, {tag:1,km:3.152,hoehe:1707,zeit:"13:51"},
+  {tag:1,km:3.158,hoehe:1715,zeit:"13:52"}, {tag:1,km:3.16,hoehe:1720,zeit:"13:53"}, {tag:1,km:3.16,hoehe:1726,zeit:"13:55"}, {tag:1,km:3.189,hoehe:1733,zeit:"13:56"},
+  {tag:1,km:3.209,hoehe:1738,zeit:"13:57"}, {tag:1,km:3.209,hoehe:1747,zeit:"13:58"}, {tag:1,km:3.209,hoehe:1754,zeit:"13:59"}, {tag:1,km:3.21,hoehe:1760,zeit:"14:00"},
+  {tag:1,km:3.221,hoehe:1764,zeit:"14:01"}, {tag:1,km:3.221,hoehe:1767,zeit:"14:02"}, {tag:1,km:3.222,hoehe:1766,zeit:"14:19"}, {tag:1,km:3.222,hoehe:1767,zeit:"14:22"},
+  {tag:1,km:3.222,hoehe:1767,zeit:"14:29"}, {tag:2,km:0,hoehe:1767,zeit:"09:34"}, {tag:2,km:0.038,hoehe:1765,zeit:"09:35"}, {tag:2,km:0.076,hoehe:1762,zeit:"09:36"},
+  {tag:2,km:0.109,hoehe:1759,zeit:"09:37"}, {tag:2,km:0.123,hoehe:1761,zeit:"09:38"}, {tag:2,km:0.139,hoehe:1763,zeit:"09:39"}, {tag:2,km:0.188,hoehe:1767,zeit:"09:40"},
+  {tag:2,km:0.192,hoehe:1773,zeit:"09:41"}, {tag:2,km:0.201,hoehe:1779,zeit:"09:42"}, {tag:2,km:0.201,hoehe:1786,zeit:"09:43"}, {tag:2,km:0.203,hoehe:1794,zeit:"09:44"},
+  {tag:2,km:0.203,hoehe:1802,zeit:"09:45"}, {tag:2,km:0.203,hoehe:1810,zeit:"09:46"}, {tag:2,km:0.203,hoehe:1814,zeit:"09:47"}, {tag:2,km:0.203,hoehe:1820,zeit:"09:48"},
+  {tag:2,km:0.203,hoehe:1826,zeit:"09:49"}, {tag:2,km:0.203,hoehe:1827,zeit:"10:03"}, {tag:2,km:0.203,hoehe:1828,zeit:"10:04"}, {tag:2,km:0.203,hoehe:1827,zeit:"10:05"},
+  {tag:2,km:0.203,hoehe:1826,zeit:"10:08"}, {tag:2,km:0.203,hoehe:1826,zeit:"10:10"}, {tag:2,km:0.203,hoehe:1826,zeit:"10:11"}, {tag:2,km:0.203,hoehe:1826,zeit:"10:12"},
+  {tag:2,km:0.203,hoehe:1831,zeit:"10:13"}, {tag:2,km:0.203,hoehe:1837,zeit:"10:14"}, {tag:2,km:0.203,hoehe:1843,zeit:"10:15"}, {tag:2,km:0.204,hoehe:1849,zeit:"10:16"},
+  {tag:2,km:0.204,hoehe:1856,zeit:"10:17"}, {tag:2,km:0.204,hoehe:1861,zeit:"10:18"}, {tag:2,km:0.204,hoehe:1864,zeit:"10:19"}, {tag:2,km:0.204,hoehe:1865,zeit:"10:20"},
+  {tag:2,km:0.204,hoehe:1869,zeit:"10:22"}, {tag:2,km:0.204,hoehe:1875,zeit:"10:23"}, {tag:2,km:0.204,hoehe:1878,zeit:"10:25"}, {tag:2,km:0.204,hoehe:1883,zeit:"10:26"},
+  {tag:2,km:0.204,hoehe:1891,zeit:"10:27"}, {tag:2,km:0.204,hoehe:1897,zeit:"10:28"}, {tag:2,km:0.204,hoehe:1902,zeit:"10:29"}, {tag:2,km:0.204,hoehe:1910,zeit:"10:30"},
+  {tag:2,km:0.204,hoehe:1917,zeit:"10:31"}, {tag:2,km:0.204,hoehe:1922,zeit:"10:32"}, {tag:2,km:0.204,hoehe:1927,zeit:"10:33"}, {tag:2,km:0.204,hoehe:1932,zeit:"10:34"},
+  {tag:2,km:0.204,hoehe:1940,zeit:"10:35"}, {tag:2,km:0.204,hoehe:1946,zeit:"10:36"}, {tag:2,km:0.204,hoehe:1953,zeit:"10:37"}, {tag:2,km:0.204,hoehe:1960,zeit:"10:38"},
+  {tag:2,km:0.204,hoehe:1967,zeit:"10:39"}, {tag:2,km:0.204,hoehe:1973,zeit:"10:40"}, {tag:2,km:0.204,hoehe:1978,zeit:"10:41"}, {tag:2,km:0.204,hoehe:1983,zeit:"10:42"},
+  {tag:2,km:0.204,hoehe:1989,zeit:"10:43"}, {tag:2,km:0.204,hoehe:1995,zeit:"10:44"}, {tag:2,km:0.204,hoehe:2003,zeit:"10:45"}, {tag:2,km:0.204,hoehe:2011,zeit:"10:46"},
+  {tag:2,km:0.204,hoehe:2015,zeit:"10:47"}, {tag:2,km:0.204,hoehe:2021,zeit:"10:48"}, {tag:2,km:0.204,hoehe:2028,zeit:"10:49"}, {tag:2,km:0.204,hoehe:2035,zeit:"10:50"},
+  {tag:2,km:0.204,hoehe:2040,zeit:"10:51"}, {tag:2,km:0.205,hoehe:2047,zeit:"10:52"}, {tag:2,km:0.205,hoehe:2052,zeit:"10:53"}, {tag:2,km:0.205,hoehe:2058,zeit:"10:54"},
+  {tag:2,km:0.205,hoehe:2065,zeit:"10:55"}, {tag:2,km:0.205,hoehe:2072,zeit:"10:56"}, {tag:2,km:0.205,hoehe:2080,zeit:"10:57"}, {tag:2,km:0.205,hoehe:2084,zeit:"10:58"},
+  {tag:2,km:0.205,hoehe:2092,zeit:"10:59"}, {tag:2,km:0.205,hoehe:2101,zeit:"11:00"}, {tag:2,km:0.206,hoehe:2107,zeit:"11:01"}, {tag:2,km:0.22,hoehe:2111,zeit:"11:02"},
+  {tag:2,km:0.223,hoehe:2116,zeit:"11:03"}, {tag:2,km:0.224,hoehe:2119,zeit:"11:04"}, {tag:2,km:0.224,hoehe:2120,zeit:"11:05"}, {tag:2,km:0.224,hoehe:2121,zeit:"11:08"},
+  {tag:2,km:0.24,hoehe:2124,zeit:"11:09"}, {tag:2,km:0.24,hoehe:2124,zeit:"11:10"}, {tag:2,km:0.25,hoehe:2123,zeit:"11:11"}, {tag:2,km:0.265,hoehe:2124,zeit:"11:12"},
+  {tag:2,km:0.265,hoehe:2126,zeit:"11:13"}, {tag:2,km:0.265,hoehe:2127,zeit:"11:15"}, {tag:2,km:0.265,hoehe:2125,zeit:"11:18"}, {tag:2,km:0.265,hoehe:2126,zeit:"11:24"},
+  {tag:2,km:0.265,hoehe:2127,zeit:"11:25"}, {tag:2,km:0.265,hoehe:2127,zeit:"11:26"}, {tag:2,km:0.265,hoehe:2125,zeit:"11:27"}, {tag:2,km:0.265,hoehe:2124,zeit:"11:28"},
+  {tag:2,km:0.269,hoehe:2127,zeit:"11:29"}, {tag:2,km:0.269,hoehe:2130,zeit:"11:30"}, {tag:2,km:0.3,hoehe:2133,zeit:"11:31"}, {tag:2,km:0.3,hoehe:2137,zeit:"11:32"},
+  {tag:2,km:0.301,hoehe:2142,zeit:"11:33"}, {tag:2,km:0.324,hoehe:2147,zeit:"11:34"}, {tag:2,km:0.327,hoehe:2146,zeit:"11:35"}, {tag:2,km:0.344,hoehe:2149,zeit:"11:37"},
+  {tag:2,km:0.36,hoehe:2149,zeit:"11:38"}, {tag:2,km:0.363,hoehe:2152,zeit:"11:39"}, {tag:2,km:0.387,hoehe:2152,zeit:"11:40"}, {tag:2,km:0.387,hoehe:2152,zeit:"11:41"},
+  {tag:2,km:0.394,hoehe:2148,zeit:"11:42"}, {tag:2,km:0.398,hoehe:2146,zeit:"11:43"}, {tag:2,km:0.407,hoehe:2143,zeit:"11:44"}, {tag:2,km:0.407,hoehe:2140,zeit:"11:45"},
+  {tag:2,km:0.407,hoehe:2141,zeit:"11:46"}, {tag:2,km:0.407,hoehe:2140,zeit:"11:47"}, {tag:2,km:0.407,hoehe:2138,zeit:"11:48"}, {tag:2,km:0.407,hoehe:2139,zeit:"11:49"},
+  {tag:2,km:0.407,hoehe:2138,zeit:"11:50"}, {tag:2,km:0.407,hoehe:2139,zeit:"11:51"}, {tag:2,km:0.407,hoehe:2138,zeit:"11:52"}, {tag:2,km:0.422,hoehe:2136,zeit:"11:53"},
+  {tag:2,km:0.435,hoehe:2131,zeit:"11:54"}, {tag:2,km:0.442,hoehe:2126,zeit:"11:55"}, {tag:2,km:0.453,hoehe:2126,zeit:"11:56"}, {tag:2,km:0.454,hoehe:2131,zeit:"11:57"},
+  {tag:2,km:0.462,hoehe:2137,zeit:"11:58"}, {tag:2,km:0.484,hoehe:2142,zeit:"11:59"}, {tag:2,km:0.484,hoehe:2147,zeit:"12:00"}, {tag:2,km:0.484,hoehe:2151,zeit:"12:02"},
+  {tag:2,km:0.493,hoehe:2154,zeit:"12:03"}, {tag:2,km:0.514,hoehe:2155,zeit:"12:04"}, {tag:2,km:0.551,hoehe:2155,zeit:"12:05"}, {tag:2,km:0.575,hoehe:2157,zeit:"12:06"},
+  {tag:2,km:0.618,hoehe:2160,zeit:"12:07"}, {tag:2,km:0.644,hoehe:2163,zeit:"12:08"}, {tag:2,km:0.647,hoehe:2162,zeit:"12:09"}, {tag:2,km:0.647,hoehe:2163,zeit:"12:10"},
+  {tag:2,km:0.647,hoehe:2164,zeit:"12:13"}, {tag:2,km:0.647,hoehe:2165,zeit:"12:14"}, {tag:2,km:0.647,hoehe:2163,zeit:"12:15"}, {tag:2,km:0.647,hoehe:2161,zeit:"12:20"},
+  {tag:2,km:0.647,hoehe:2162,zeit:"12:23"}, {tag:2,km:0.647,hoehe:2161,zeit:"12:25"}, {tag:2,km:0.647,hoehe:2164,zeit:"12:27"}, {tag:2,km:0.647,hoehe:2168,zeit:"12:28"},
+  {tag:2,km:0.647,hoehe:2171,zeit:"12:29"}, {tag:2,km:0.658,hoehe:2174,zeit:"12:30"}, {tag:2,km:0.66,hoehe:2177,zeit:"12:31"}, {tag:2,km:0.663,hoehe:2181,zeit:"12:32"},
+  {tag:2,km:0.663,hoehe:2189,zeit:"12:33"}, {tag:2,km:0.663,hoehe:2197,zeit:"12:34"}, {tag:2,km:0.663,hoehe:2205,zeit:"12:35"}, {tag:2,km:0.663,hoehe:2213,zeit:"12:36"},
+  {tag:2,km:0.663,hoehe:2220,zeit:"12:37"}, {tag:2,km:0.663,hoehe:2228,zeit:"12:38"}, {tag:2,km:0.663,hoehe:2237,zeit:"12:39"}, {tag:2,km:0.663,hoehe:2245,zeit:"12:40"},
+  {tag:2,km:0.663,hoehe:2253,zeit:"12:43"}, {tag:2,km:0.665,hoehe:2261,zeit:"12:44"}, {tag:2,km:0.665,hoehe:2269,zeit:"12:45"}, {tag:2,km:0.665,hoehe:2277,zeit:"12:46"},
+  {tag:2,km:0.665,hoehe:2284,zeit:"12:47"}, {tag:2,km:0.666,hoehe:2291,zeit:"12:48"}, {tag:2,km:0.666,hoehe:2298,zeit:"12:49"}, {tag:2,km:0.671,hoehe:2306,zeit:"12:50"},
+  {tag:2,km:0.671,hoehe:2313,zeit:"12:51"}, {tag:2,km:0.671,hoehe:2323,zeit:"12:52"}, {tag:2,km:0.671,hoehe:2329,zeit:"12:53"}, {tag:2,km:0.671,hoehe:2330,zeit:"12:54"},
+  {tag:2,km:0.676,hoehe:2330,zeit:"12:55"}, {tag:2,km:0.683,hoehe:2327,zeit:"12:56"}, {tag:2,km:0.707,hoehe:2323,zeit:"12:57"}, {tag:2,km:0.715,hoehe:2319,zeit:"12:58"},
+  {tag:2,km:0.745,hoehe:2314,zeit:"12:59"}, {tag:2,km:0.759,hoehe:2313,zeit:"13:00"}, {tag:2,km:0.781,hoehe:2311,zeit:"13:01"}, {tag:2,km:0.803,hoehe:2306,zeit:"13:02"},
+  {tag:2,km:0.82,hoehe:2304,zeit:"13:03"}, {tag:2,km:0.86,hoehe:2296,zeit:"13:04"}, {tag:2,km:0.907,hoehe:2288,zeit:"13:05"}, {tag:2,km:0.907,hoehe:2285,zeit:"13:06"},
+  {tag:2,km:0.916,hoehe:2282,zeit:"13:07"}, {tag:2,km:0.994,hoehe:2271,zeit:"13:08"}, {tag:2,km:1.064,hoehe:2258,zeit:"13:09"}, {tag:2,km:1.083,hoehe:2247,zeit:"13:10"},
+  {tag:2,km:1.107,hoehe:2237,zeit:"13:11"}, {tag:2,km:1.118,hoehe:2225,zeit:"13:12"}, {tag:2,km:1.151,hoehe:2214,zeit:"13:13"}, {tag:2,km:1.187,hoehe:2204,zeit:"13:14"},
+  {tag:2,km:1.209,hoehe:2195,zeit:"13:15"}, {tag:2,km:1.269,hoehe:2188,zeit:"13:16"}, {tag:2,km:1.289,hoehe:2185,zeit:"13:17"}, {tag:2,km:1.364,hoehe:2181,zeit:"13:18"},
+  {tag:2,km:1.421,hoehe:2179,zeit:"13:19"}, {tag:2,km:1.472,hoehe:2181,zeit:"13:20"}, {tag:2,km:1.557,hoehe:2182,zeit:"13:21"}, {tag:2,km:1.611,hoehe:2184,zeit:"13:22"},
+  {tag:2,km:1.631,hoehe:2186,zeit:"13:23"}, {tag:2,km:1.673,hoehe:2186,zeit:"13:24"}, {tag:2,km:1.69,hoehe:2185,zeit:"13:26"}, {tag:2,km:1.707,hoehe:2187,zeit:"13:27"},
+  {tag:2,km:1.718,hoehe:2194,zeit:"13:28"}, {tag:2,km:1.719,hoehe:2200,zeit:"13:29"}, {tag:2,km:1.735,hoehe:2196,zeit:"13:30"}, {tag:2,km:1.754,hoehe:2189,zeit:"13:31"},
+  {tag:2,km:1.755,hoehe:2185,zeit:"13:37"}, {tag:2,km:1.8,hoehe:2181,zeit:"13:38"}, {tag:2,km:1.831,hoehe:2176,zeit:"13:39"}, {tag:2,km:1.862,hoehe:2173,zeit:"13:40"},
+  {tag:2,km:1.887,hoehe:2170,zeit:"13:42"}, {tag:2,km:1.905,hoehe:2161,zeit:"13:43"}, {tag:2,km:1.909,hoehe:2151,zeit:"13:44"}, {tag:2,km:1.924,hoehe:2141,zeit:"13:45"},
+  {tag:2,km:1.947,hoehe:2131,zeit:"13:46"}, {tag:2,km:1.952,hoehe:2123,zeit:"13:47"}, {tag:2,km:1.97,hoehe:2115,zeit:"13:48"}, {tag:2,km:1.975,hoehe:2106,zeit:"13:49"},
+  {tag:2,km:1.991,hoehe:2097,zeit:"13:50"}, {tag:2,km:2.019,hoehe:2087,zeit:"13:51"}, {tag:2,km:2.045,hoehe:2079,zeit:"13:52"}, {tag:2,km:2.085,hoehe:2072,zeit:"13:53"},
+  {tag:2,km:2.089,hoehe:2066,zeit:"13:54"}, {tag:2,km:2.089,hoehe:2067,zeit:"13:55"}, {tag:2,km:2.095,hoehe:2068,zeit:"13:58"}, {tag:2,km:2.158,hoehe:2062,zeit:"13:59"},
+  {tag:2,km:2.202,hoehe:2050,zeit:"14:00"}, {tag:2,km:2.217,hoehe:2041,zeit:"14:01"}, {tag:2,km:2.238,hoehe:2033,zeit:"14:02"}, {tag:2,km:2.238,hoehe:2026,zeit:"14:03"},
+  {tag:2,km:2.238,hoehe:2024,zeit:"14:04"}, {tag:2,km:2.238,hoehe:2025,zeit:"14:05"}, {tag:2,km:2.238,hoehe:2023,zeit:"14:07"}, {tag:2,km:2.24,hoehe:2021,zeit:"14:08"},
+  {tag:2,km:2.258,hoehe:2015,zeit:"14:09"}, {tag:2,km:2.266,hoehe:2012,zeit:"14:10"}, {tag:2,km:2.266,hoehe:2011,zeit:"14:12"}, {tag:2,km:2.266,hoehe:2012,zeit:"14:15"},
+  {tag:2,km:2.266,hoehe:2012,zeit:"14:17"}, {tag:2,km:2.266,hoehe:2011,zeit:"14:20"}, {tag:3,km:0,hoehe:2013,zeit:"09:57"}, {tag:3,km:0,hoehe:2013,zeit:"09:58"},
+  {tag:3,km:0,hoehe:2013,zeit:"09:59"}, {tag:3,km:0,hoehe:2012,zeit:"10:00"}, {tag:3,km:0.013,hoehe:2013,zeit:"10:06"}, {tag:3,km:0.029,hoehe:2013,zeit:"10:07"},
+  {tag:3,km:0.051,hoehe:2010,zeit:"10:08"}, {tag:3,km:0.057,hoehe:2013,zeit:"10:09"}, {tag:3,km:0.057,hoehe:2020,zeit:"10:10"}, {tag:3,km:0.057,hoehe:2028,zeit:"10:11"},
+  {tag:3,km:0.061,hoehe:2035,zeit:"10:12"}, {tag:3,km:0.061,hoehe:2041,zeit:"10:13"}, {tag:3,km:0.061,hoehe:2045,zeit:"10:14"}, {tag:3,km:0.067,hoehe:2047,zeit:"10:15"},
+  {tag:3,km:0.095,hoehe:2046,zeit:"10:16"}, {tag:3,km:0.095,hoehe:2049,zeit:"10:17"}, {tag:3,km:0.103,hoehe:2050,zeit:"10:18"}, {tag:3,km:0.116,hoehe:2053,zeit:"10:19"},
+  {tag:3,km:0.12,hoehe:2050,zeit:"10:20"}, {tag:3,km:0.12,hoehe:2054,zeit:"10:21"}, {tag:3,km:0.12,hoehe:2061,zeit:"10:22"}, {tag:3,km:0.12,hoehe:2066,zeit:"10:23"},
+  {tag:3,km:0.12,hoehe:2072,zeit:"10:25"}, {tag:3,km:0.124,hoehe:2079,zeit:"10:26"}, {tag:3,km:0.125,hoehe:2087,zeit:"10:27"}, {tag:3,km:0.125,hoehe:2093,zeit:"10:29"},
+  {tag:3,km:0.127,hoehe:2095,zeit:"10:30"}, {tag:3,km:0.128,hoehe:2096,zeit:"10:31"}, {tag:3,km:0.138,hoehe:2100,zeit:"10:32"}, {tag:3,km:0.141,hoehe:2104,zeit:"10:33"},
+  {tag:3,km:0.141,hoehe:2106,zeit:"10:34"}, {tag:3,km:0.141,hoehe:2109,zeit:"10:35"}, {tag:3,km:0.141,hoehe:2116,zeit:"10:36"}, {tag:3,km:0.141,hoehe:2122,zeit:"10:37"},
+  {tag:3,km:0.141,hoehe:2126,zeit:"10:38"}, {tag:3,km:0.141,hoehe:2132,zeit:"10:39"}, {tag:3,km:0.15,hoehe:2137,zeit:"10:40"}, {tag:3,km:0.182,hoehe:2132,zeit:"10:46"},
+  {tag:3,km:0.22,hoehe:2126,zeit:"10:47"}, {tag:3,km:0.239,hoehe:2128,zeit:"10:49"}, {tag:3,km:0.239,hoehe:2133,zeit:"10:50"}, {tag:3,km:0.245,hoehe:2136,zeit:"10:51"},
+  {tag:3,km:0.246,hoehe:2140,zeit:"10:52"}, {tag:3,km:0.246,hoehe:2140,zeit:"10:53"}, {tag:3,km:0.246,hoehe:2137,zeit:"10:54"}, {tag:3,km:0.246,hoehe:2135,zeit:"10:55"},
+  {tag:3,km:0.256,hoehe:2134,zeit:"10:56"}, {tag:3,km:0.281,hoehe:2130,zeit:"10:57"}, {tag:3,km:0.289,hoehe:2126,zeit:"10:58"}, {tag:3,km:0.328,hoehe:2126,zeit:"11:01"},
+  {tag:3,km:0.336,hoehe:2133,zeit:"11:02"}, {tag:3,km:0.336,hoehe:2140,zeit:"11:03"}, {tag:3,km:0.337,hoehe:2148,zeit:"11:04"}, {tag:3,km:0.337,hoehe:2155,zeit:"11:05"},
+  {tag:3,km:0.337,hoehe:2162,zeit:"11:06"}, {tag:3,km:0.338,hoehe:2167,zeit:"11:07"}, {tag:3,km:0.338,hoehe:2171,zeit:"11:08"}, {tag:3,km:0.34,hoehe:2178,zeit:"11:09"},
+  {tag:3,km:0.34,hoehe:2186,zeit:"11:10"}, {tag:3,km:0.34,hoehe:2193,zeit:"11:11"}, {tag:3,km:0.34,hoehe:2200,zeit:"11:12"}, {tag:3,km:0.341,hoehe:2207,zeit:"11:13"},
+  {tag:3,km:0.341,hoehe:2214,zeit:"11:14"}, {tag:3,km:0.341,hoehe:2220,zeit:"11:15"}, {tag:3,km:0.341,hoehe:2225,zeit:"11:16"}, {tag:3,km:0.341,hoehe:2232,zeit:"11:17"},
+  {tag:3,km:0.341,hoehe:2241,zeit:"11:18"}, {tag:3,km:0.341,hoehe:2248,zeit:"11:19"}, {tag:3,km:0.341,hoehe:2251,zeit:"11:20"}, {tag:3,km:0.352,hoehe:2256,zeit:"11:21"},
+  {tag:3,km:0.352,hoehe:2264,zeit:"11:22"}, {tag:3,km:0.357,hoehe:2273,zeit:"11:23"}, {tag:3,km:0.357,hoehe:2281,zeit:"11:24"}, {tag:3,km:0.357,hoehe:2287,zeit:"11:25"},
+  {tag:3,km:0.357,hoehe:2292,zeit:"11:26"}, {tag:3,km:0.359,hoehe:2300,zeit:"11:27"}, {tag:3,km:0.366,hoehe:2306,zeit:"11:28"}, {tag:3,km:0.386,hoehe:2307,zeit:"11:29"},
+  {tag:3,km:0.417,hoehe:2303,zeit:"11:32"}, {tag:3,km:0.471,hoehe:2294,zeit:"11:33"}, {tag:3,km:0.514,hoehe:2282,zeit:"11:34"}, {tag:3,km:0.557,hoehe:2268,zeit:"11:35"},
+  {tag:3,km:0.608,hoehe:2255,zeit:"11:36"}, {tag:3,km:0.663,hoehe:2243,zeit:"11:37"}, {tag:3,km:0.709,hoehe:2232,zeit:"11:38"}, {tag:3,km:0.763,hoehe:2220,zeit:"11:39"},
+  {tag:3,km:0.781,hoehe:2209,zeit:"11:40"}, {tag:3,km:0.789,hoehe:2200,zeit:"11:41"}, {tag:3,km:0.807,hoehe:2191,zeit:"11:42"}, {tag:3,km:0.858,hoehe:2183,zeit:"11:43"},
+  {tag:3,km:0.93,hoehe:2173,zeit:"11:44"}, {tag:3,km:0.988,hoehe:2164,zeit:"11:45"}, {tag:3,km:1.044,hoehe:2159,zeit:"11:46"}, {tag:3,km:1.083,hoehe:2157,zeit:"11:47"},
+  {tag:3,km:1.166,hoehe:2154,zeit:"11:48"}, {tag:3,km:1.277,hoehe:2150,zeit:"11:49"}, {tag:3,km:1.289,hoehe:2147,zeit:"11:50"}, {tag:3,km:1.379,hoehe:2140,zeit:"11:51"},
+  {tag:3,km:1.399,hoehe:2134,zeit:"11:52"}, {tag:3,km:1.407,hoehe:2141,zeit:"11:54"}, {tag:3,km:1.407,hoehe:2148,zeit:"11:55"}, {tag:3,km:1.407,hoehe:2147,zeit:"11:56"},
+  {tag:3,km:1.407,hoehe:2148,zeit:"12:00"}, {tag:3,km:1.43,hoehe:2146,zeit:"12:02"}, {tag:3,km:1.445,hoehe:2150,zeit:"12:03"}, {tag:3,km:1.447,hoehe:2156,zeit:"12:04"},
+  {tag:3,km:1.447,hoehe:2164,zeit:"12:05"}, {tag:3,km:1.447,hoehe:2172,zeit:"12:06"}, {tag:3,km:1.447,hoehe:2178,zeit:"12:07"}, {tag:3,km:1.447,hoehe:2185,zeit:"12:08"},
+  {tag:3,km:1.447,hoehe:2193,zeit:"12:09"}, {tag:3,km:1.447,hoehe:2200,zeit:"12:10"}, {tag:3,km:1.454,hoehe:2204,zeit:"12:11"}, {tag:3,km:1.454,hoehe:2207,zeit:"12:12"},
+  {tag:3,km:1.459,hoehe:2211,zeit:"12:13"}, {tag:3,km:1.459,hoehe:2218,zeit:"12:14"}, {tag:3,km:1.459,hoehe:2225,zeit:"12:15"}, {tag:3,km:1.459,hoehe:2231,zeit:"12:16"},
+  {tag:3,km:1.459,hoehe:2236,zeit:"12:17"}, {tag:3,km:1.471,hoehe:2239,zeit:"12:19"}, {tag:3,km:1.471,hoehe:2238,zeit:"12:20"}, {tag:3,km:1.471,hoehe:2238,zeit:"12:21"},
+  {tag:3,km:1.471,hoehe:2243,zeit:"12:22"}, {tag:3,km:1.471,hoehe:2247,zeit:"12:23"}, {tag:3,km:1.472,hoehe:2243,zeit:"12:24"}, {tag:3,km:1.473,hoehe:2239,zeit:"12:25"},
+  {tag:3,km:1.473,hoehe:2238,zeit:"12:26"}, {tag:3,km:1.473,hoehe:2235,zeit:"12:27"}, {tag:3,km:1.473,hoehe:2230,zeit:"12:28"}, {tag:3,km:1.477,hoehe:2226,zeit:"12:29"},
+  {tag:3,km:1.517,hoehe:2224,zeit:"12:30"}, {tag:3,km:1.535,hoehe:2228,zeit:"12:31"}, {tag:3,km:1.536,hoehe:2230,zeit:"12:32"}, {tag:3,km:1.549,hoehe:2235,zeit:"12:33"},
+  {tag:3,km:1.549,hoehe:2243,zeit:"12:34"}, {tag:3,km:1.55,hoehe:2250,zeit:"12:35"}, {tag:3,km:1.55,hoehe:2256,zeit:"12:36"}, {tag:3,km:1.55,hoehe:2256,zeit:"12:37"},
+  {tag:3,km:1.578,hoehe:2248,zeit:"12:38"}, {tag:3,km:1.589,hoehe:2240,zeit:"12:39"}, {tag:3,km:1.625,hoehe:2231,zeit:"12:40"}, {tag:3,km:1.631,hoehe:2220,zeit:"12:41"},
+  {tag:3,km:1.67,hoehe:2211,zeit:"12:42"}, {tag:3,km:1.714,hoehe:2208,zeit:"12:43"}, {tag:3,km:1.724,hoehe:2201,zeit:"12:44"}, {tag:3,km:1.727,hoehe:2190,zeit:"12:45"},
+  {tag:3,km:1.747,hoehe:2180,zeit:"12:46"}, {tag:3,km:1.779,hoehe:2170,zeit:"12:47"}, {tag:3,km:1.827,hoehe:2159,zeit:"12:48"}, {tag:3,km:1.881,hoehe:2147,zeit:"12:49"},
+  {tag:3,km:1.911,hoehe:2138,zeit:"12:50"}, {tag:3,km:1.932,hoehe:2134,zeit:"12:51"}, {tag:3,km:1.946,hoehe:2134,zeit:"12:57"}, {tag:3,km:1.946,hoehe:2135,zeit:"13:02"},
+  {tag:3,km:1.946,hoehe:2136,zeit:"13:17"}, {tag:3,km:1.946,hoehe:2137,zeit:"13:20"}, {tag:3,km:1.946,hoehe:2136,zeit:"13:21"}, {tag:3,km:1.946,hoehe:2137,zeit:"13:24"},
+  {tag:3,km:1.948,hoehe:2135,zeit:"13:25"}, {tag:3,km:2.005,hoehe:2135,zeit:"13:26"}, {tag:3,km:2.017,hoehe:2141,zeit:"13:27"}, {tag:3,km:2.018,hoehe:2148,zeit:"13:28"},
+  {tag:3,km:2.018,hoehe:2156,zeit:"13:29"}, {tag:3,km:2.018,hoehe:2164,zeit:"13:30"}, {tag:3,km:2.019,hoehe:2171,zeit:"13:31"}, {tag:3,km:2.026,hoehe:2176,zeit:"13:32"},
+  {tag:3,km:2.038,hoehe:2179,zeit:"13:33"}, {tag:3,km:2.04,hoehe:2185,zeit:"13:34"}, {tag:3,km:2.04,hoehe:2193,zeit:"13:35"}, {tag:3,km:2.04,hoehe:2200,zeit:"13:36"},
+  {tag:3,km:2.04,hoehe:2206,zeit:"13:37"}, {tag:3,km:2.04,hoehe:2212,zeit:"13:38"}, {tag:3,km:2.041,hoehe:2218,zeit:"13:39"}, {tag:3,km:2.041,hoehe:2225,zeit:"13:40"},
+  {tag:3,km:2.041,hoehe:2231,zeit:"13:41"}, {tag:3,km:2.041,hoehe:2237,zeit:"13:42"}, {tag:3,km:2.041,hoehe:2244,zeit:"13:43"}, {tag:3,km:2.041,hoehe:2251,zeit:"13:44"},
+  {tag:3,km:2.041,hoehe:2257,zeit:"13:45"}, {tag:3,km:2.041,hoehe:2262,zeit:"13:46"}, {tag:3,km:2.041,hoehe:2267,zeit:"13:47"}, {tag:3,km:2.041,hoehe:2273,zeit:"13:48"},
+  {tag:3,km:2.041,hoehe:2279,zeit:"13:49"}, {tag:3,km:2.041,hoehe:2286,zeit:"13:50"}, {tag:3,km:2.041,hoehe:2292,zeit:"13:51"}, {tag:3,km:2.041,hoehe:2298,zeit:"13:52"},
+  {tag:3,km:2.041,hoehe:2301,zeit:"13:53"}, {tag:3,km:2.042,hoehe:2306,zeit:"13:54"}, {tag:3,km:2.042,hoehe:2313,zeit:"13:55"}, {tag:3,km:2.042,hoehe:2317,zeit:"13:56"},
+  {tag:3,km:2.042,hoehe:2320,zeit:"13:57"}, {tag:3,km:2.042,hoehe:2321,zeit:"14:07"}, {tag:3,km:2.064,hoehe:2316,zeit:"14:08"}, {tag:3,km:2.067,hoehe:2313,zeit:"14:09"},
+  {tag:3,km:2.069,hoehe:2314,zeit:"14:10"}, {tag:3,km:2.069,hoehe:2313,zeit:"14:11"}, {tag:3,km:2.069,hoehe:2311,zeit:"14:12"}, {tag:3,km:2.069,hoehe:2308,zeit:"14:13"},
+  {tag:3,km:2.083,hoehe:2302,zeit:"14:14"}, {tag:3,km:2.083,hoehe:2293,zeit:"14:15"}, {tag:3,km:2.094,hoehe:2287,zeit:"14:16"}, {tag:3,km:2.094,hoehe:2279,zeit:"14:17"},
+  {tag:3,km:2.094,hoehe:2274,zeit:"14:18"}, {tag:3,km:2.094,hoehe:2271,zeit:"14:19"}, {tag:3,km:2.094,hoehe:2268,zeit:"14:21"}, {tag:3,km:2.094,hoehe:2267,zeit:"14:22"},
+  {tag:3,km:2.094,hoehe:2266,zeit:"14:23"}, {tag:3,km:2.094,hoehe:2265,zeit:"14:24"}, {tag:3,km:2.094,hoehe:2263,zeit:"14:25"}, {tag:3,km:2.094,hoehe:2262,zeit:"14:26"},
+  {tag:3,km:2.094,hoehe:2261,zeit:"14:27"}, {tag:3,km:2.094,hoehe:2259,zeit:"14:29"}, {tag:3,km:2.094,hoehe:2256,zeit:"14:30"}, {tag:3,km:2.095,hoehe:2253,zeit:"14:31"},
+  {tag:3,km:2.099,hoehe:2245,zeit:"14:32"}, {tag:3,km:2.103,hoehe:2236,zeit:"14:33"}, {tag:3,km:2.103,hoehe:2228,zeit:"14:34"}, {tag:3,km:2.105,hoehe:2222,zeit:"14:35"},
+  {tag:3,km:2.105,hoehe:2214,zeit:"14:36"}, {tag:3,km:2.122,hoehe:2206,zeit:"14:37"}, {tag:3,km:2.124,hoehe:2197,zeit:"14:38"}, {tag:3,km:2.147,hoehe:2186,zeit:"14:39"},
+  {tag:3,km:2.154,hoehe:2176,zeit:"14:40"}, {tag:3,km:2.169,hoehe:2165,zeit:"14:41"}, {tag:3,km:2.194,hoehe:2151,zeit:"14:42"}, {tag:3,km:2.204,hoehe:2139,zeit:"14:43"},
+  {tag:3,km:2.207,hoehe:2128,zeit:"14:44"}, {tag:3,km:2.223,hoehe:2118,zeit:"14:45"}, {tag:3,km:2.255,hoehe:2109,zeit:"14:46"}, {tag:3,km:2.278,hoehe:2098,zeit:"14:47"},
+  {tag:3,km:2.304,hoehe:2087,zeit:"14:48"}, {tag:3,km:2.324,hoehe:2078,zeit:"14:49"}, {tag:3,km:2.353,hoehe:2069,zeit:"14:50"}, {tag:3,km:2.422,hoehe:2057,zeit:"14:51"},
+  {tag:3,km:2.432,hoehe:2047,zeit:"14:52"}, {tag:3,km:2.432,hoehe:2045,zeit:"14:53"}, {tag:3,km:2.435,hoehe:2045,zeit:"14:54"}, {tag:3,km:2.487,hoehe:2042,zeit:"14:55"},
+  {tag:3,km:2.524,hoehe:2038,zeit:"14:56"}, {tag:3,km:2.598,hoehe:2032,zeit:"14:57"}, {tag:3,km:2.598,hoehe:2024,zeit:"14:59"}, {tag:3,km:2.598,hoehe:2018,zeit:"15:00"},
+  {tag:3,km:2.611,hoehe:2011,zeit:"15:01"}, {tag:3,km:2.641,hoehe:2004,zeit:"15:02"}, {tag:3,km:2.659,hoehe:2000,zeit:"15:03"}, {tag:3,km:2.681,hoehe:1997,zeit:"15:04"},
+  {tag:3,km:2.681,hoehe:1994,zeit:"15:05"}, {tag:3,km:2.681,hoehe:1993,zeit:"15:06"}, {tag:3,km:2.682,hoehe:1995,zeit:"15:16"}, {tag:3,km:2.682,hoehe:1997,zeit:"15:17"},
+  {tag:3,km:2.69,hoehe:1996,zeit:"15:18"}, {tag:3,km:2.691,hoehe:1996,zeit:"15:19"}, {tag:3,km:2.696,hoehe:1999,zeit:"15:20"}, {tag:3,km:2.696,hoehe:2000,zeit:"15:21"},
+  {tag:4,km:0,hoehe:2087,zeit:"09:03"}, {tag:4,km:0.006,hoehe:2086,zeit:"09:04"}, {tag:4,km:0.021,hoehe:2084,zeit:"09:06"}, {tag:4,km:0.028,hoehe:2085,zeit:"09:07"},
+  {tag:4,km:0.033,hoehe:2092,zeit:"09:08"}, {tag:4,km:0.04,hoehe:2099,zeit:"09:09"}, {tag:4,km:0.045,hoehe:2105,zeit:"09:10"}, {tag:4,km:0.052,hoehe:2112,zeit:"09:11"},
+  {tag:4,km:0.056,hoehe:2117,zeit:"09:12"}, {tag:4,km:0.087,hoehe:2122,zeit:"09:17"}, {tag:4,km:0.094,hoehe:2130,zeit:"09:18"}, {tag:4,km:0.099,hoehe:2138,zeit:"09:19"},
+  {tag:4,km:0.105,hoehe:2147,zeit:"09:20"}, {tag:4,km:0.109,hoehe:2154,zeit:"09:21"}, {tag:4,km:0.119,hoehe:2155,zeit:"09:23"}, {tag:4,km:0.142,hoehe:2159,zeit:"09:26"},
+  {tag:4,km:0.147,hoehe:2165,zeit:"09:27"}, {tag:4,km:0.153,hoehe:2172,zeit:"09:28"}, {tag:4,km:0.159,hoehe:2180,zeit:"09:29"}, {tag:4,km:0.165,hoehe:2186,zeit:"09:30"},
+  {tag:4,km:0.171,hoehe:2193,zeit:"09:31"}, {tag:4,km:0.174,hoehe:2199,zeit:"09:32"}, {tag:4,km:0.183,hoehe:2204,zeit:"09:33"}, {tag:4,km:0.189,hoehe:2212,zeit:"09:34"},
+  {tag:4,km:0.201,hoehe:2220,zeit:"09:36"}, {tag:4,km:0.207,hoehe:2226,zeit:"09:37"}, {tag:4,km:0.213,hoehe:2232,zeit:"09:38"}, {tag:4,km:0.219,hoehe:2237,zeit:"09:39"},
+  {tag:4,km:0.225,hoehe:2244,zeit:"09:40"}, {tag:4,km:0.235,hoehe:2249,zeit:"09:42"}, {tag:4,km:0.242,hoehe:2254,zeit:"09:43"}, {tag:4,km:0.249,hoehe:2262,zeit:"09:44"},
+  {tag:4,km:0.255,hoehe:2270,zeit:"09:45"}, {tag:4,km:0.26,hoehe:2276,zeit:"09:46"}, {tag:4,km:0.267,hoehe:2282,zeit:"09:47"}, {tag:4,km:0.269,hoehe:2287,zeit:"09:48"},
+  {tag:4,km:0.279,hoehe:2292,zeit:"09:49"}, {tag:4,km:0.285,hoehe:2299,zeit:"09:50"}, {tag:4,km:0.29,hoehe:2306,zeit:"09:51"}, {tag:4,km:0.297,hoehe:2312,zeit:"09:52"},
+  {tag:4,km:0.303,hoehe:2319,zeit:"09:53"}, {tag:4,km:0.308,hoehe:2327,zeit:"09:54"}, {tag:4,km:0.321,hoehe:2330,zeit:"09:56"}, {tag:4,km:0.327,hoehe:2335,zeit:"09:57"},
+  {tag:4,km:0.332,hoehe:2344,zeit:"09:58"}, {tag:4,km:0.338,hoehe:2351,zeit:"09:59"}, {tag:4,km:0.345,hoehe:2358,zeit:"10:00"}, {tag:4,km:0.351,hoehe:2365,zeit:"10:01"},
+  {tag:4,km:0.357,hoehe:2372,zeit:"10:02"}, {tag:4,km:0.363,hoehe:2379,zeit:"10:03"}, {tag:4,km:0.369,hoehe:2384,zeit:"10:04"}, {tag:4,km:0.374,hoehe:2390,zeit:"10:05"},
+  {tag:4,km:0.376,hoehe:2395,zeit:"10:06"}, {tag:4,km:0.382,hoehe:2397,zeit:"10:07",luecke:true}, {tag:4,km:0.388,hoehe:2399,zeit:"10:08",luecke:true}, {tag:4,km:0.394,hoehe:2401,zeit:"10:09",luecke:true},
+  {tag:4,km:0.4,hoehe:2404,zeit:"10:10",luecke:true}, {tag:4,km:0.405,hoehe:2406,zeit:"10:11",luecke:true}, {tag:4,km:0.411,hoehe:2409,zeit:"10:12",luecke:true}, {tag:4,km:0.417,hoehe:2411,zeit:"10:13",luecke:true},
+  {tag:4,km:0.423,hoehe:2414,zeit:"10:14",luecke:true}, {tag:4,km:0.429,hoehe:2416,zeit:"10:15",luecke:true}, {tag:4,km:0.435,hoehe:2418,zeit:"10:16",luecke:true}, {tag:4,km:0.441,hoehe:2421,zeit:"10:17",luecke:true},
+  {tag:4,km:0.447,hoehe:2423,zeit:"10:18",luecke:true}, {tag:4,km:0.453,hoehe:2426,zeit:"10:19",luecke:true}, {tag:4,km:0.459,hoehe:2428,zeit:"10:20",luecke:true}, {tag:4,km:0.465,hoehe:2431,zeit:"10:21",luecke:true},
+  {tag:4,km:0.471,hoehe:2433,zeit:"10:22",luecke:true}, {tag:4,km:0.477,hoehe:2435,zeit:"10:23",luecke:true}, {tag:4,km:0.483,hoehe:2438,zeit:"10:24",luecke:true}, {tag:4,km:0.489,hoehe:2440,zeit:"10:25",luecke:true},
+  {tag:4,km:0.495,hoehe:2443,zeit:"10:26",luecke:true}, {tag:4,km:0.501,hoehe:2445,zeit:"10:27",luecke:true}, {tag:4,km:0.506,hoehe:2448,zeit:"10:28",luecke:true}, {tag:4,km:0.512,hoehe:2450,zeit:"10:29",luecke:true},
+  {tag:4,km:0.518,hoehe:2453,zeit:"10:30",luecke:true}, {tag:4,km:0.524,hoehe:2455,zeit:"10:31",luecke:true}, {tag:4,km:0.53,hoehe:2457,zeit:"10:32",luecke:true}, {tag:4,km:0.536,hoehe:2460,zeit:"10:33",luecke:true},
+  {tag:4,km:0.542,hoehe:2462,zeit:"10:34",luecke:true}, {tag:4,km:0.548,hoehe:2464,zeit:"10:35",luecke:true}, {tag:4,km:0.554,hoehe:2466,zeit:"10:36",luecke:true}, {tag:4,km:0.56,hoehe:2468,zeit:"10:37",luecke:true},
+  {tag:4,km:0.566,hoehe:2470,zeit:"10:38",luecke:true}, {tag:4,km:0.572,hoehe:2472,zeit:"10:39",luecke:true}, {tag:4,km:0.578,hoehe:2474,zeit:"10:40",luecke:true}, {tag:4,km:0.584,hoehe:2476,zeit:"10:41",luecke:true},
+  {tag:4,km:0.59,hoehe:2478,zeit:"10:42",luecke:true}, {tag:4,km:0.596,hoehe:2481,zeit:"10:43",luecke:true}, {tag:4,km:0.602,hoehe:2483,zeit:"10:44",luecke:true}, {tag:4,km:0.608,hoehe:2486,zeit:"10:45",luecke:true},
+  {tag:4,km:0.613,hoehe:2488,zeit:"10:46",luecke:true}, {tag:4,km:0.619,hoehe:2490,zeit:"10:47",luecke:true}, {tag:4,km:0.625,hoehe:2493,zeit:"10:48",luecke:true}, {tag:4,km:0.631,hoehe:2495,zeit:"10:49",luecke:true},
+  {tag:4,km:0.637,hoehe:2498,zeit:"10:50",luecke:true}, {tag:4,km:0.643,hoehe:2500,zeit:"10:51",luecke:true}, {tag:4,km:0.649,hoehe:2503,zeit:"10:52",luecke:true}, {tag:4,km:0.655,hoehe:2505,zeit:"10:53",luecke:true},
+  {tag:4,km:0.661,hoehe:2507,zeit:"10:54",luecke:true}, {tag:4,km:0.667,hoehe:2509,zeit:"10:55",luecke:true}, {tag:4,km:0.673,hoehe:2511,zeit:"10:56",luecke:true}, {tag:4,km:0.679,hoehe:2513,zeit:"10:57",luecke:true},
+  {tag:4,km:0.685,hoehe:2515,zeit:"10:58",luecke:true}, {tag:4,km:0.691,hoehe:2517,zeit:"10:59",luecke:true}, {tag:4,km:0.697,hoehe:2519,zeit:"11:00",luecke:true}, {tag:4,km:0.703,hoehe:2521,zeit:"11:01",luecke:true},
+  {tag:4,km:0.709,hoehe:2523,zeit:"11:02",luecke:true}, {tag:4,km:0.715,hoehe:2525,zeit:"11:03",luecke:true}, {tag:4,km:0.72,hoehe:2527,zeit:"11:04",luecke:true}, {tag:4,km:0.726,hoehe:2529,zeit:"11:05",luecke:true},
+  {tag:4,km:0.732,hoehe:2531,zeit:"11:06",luecke:true}, {tag:4,km:0.738,hoehe:2533,zeit:"11:07",luecke:true}, {tag:4,km:0.744,hoehe:2534,zeit:"11:08",luecke:true}, {tag:4,km:0.75,hoehe:2536,zeit:"11:09",luecke:true},
+  {tag:4,km:0.756,hoehe:2536,zeit:"11:10",luecke:true}, {tag:4,km:0.762,hoehe:2536,zeit:"11:11",luecke:true}, {tag:4,km:0.768,hoehe:2536,zeit:"11:12",luecke:true}, {tag:4,km:0.774,hoehe:2536,zeit:"11:13",luecke:true},
+  {tag:4,km:0.78,hoehe:2536,zeit:"11:14",luecke:true}, {tag:4,km:0.786,hoehe:2536,zeit:"11:15",luecke:true}, {tag:4,km:0.792,hoehe:2536,zeit:"11:16",luecke:true}, {tag:4,km:0.798,hoehe:2536,zeit:"11:17",luecke:true},
+  {tag:4,km:0.804,hoehe:2536,zeit:"11:18",luecke:true}, {tag:4,km:0.81,hoehe:2536,zeit:"11:19",luecke:true}, {tag:4,km:0.816,hoehe:2536,zeit:"11:20",luecke:true}, {tag:4,km:0.819,hoehe:2536,zeit:"11:20",luecke:true},
+  {tag:4,km:0.821,hoehe:2528,zeit:"11:21"}, {tag:4,km:0.824,hoehe:2517,zeit:"11:22"}, {tag:4,km:0.835,hoehe:2507,zeit:"11:23"}, {tag:4,km:0.835,hoehe:2500,zeit:"11:24"},
+  {tag:4,km:0.835,hoehe:2496,zeit:"11:25"}, {tag:4,km:0.835,hoehe:2491,zeit:"11:27"}, {tag:4,km:0.835,hoehe:2485,zeit:"11:28"}, {tag:4,km:0.835,hoehe:2478,zeit:"11:29"},
+  {tag:4,km:0.835,hoehe:2472,zeit:"11:30"}, {tag:4,km:0.837,hoehe:2464,zeit:"11:31"}, {tag:4,km:0.844,hoehe:2455,zeit:"11:32"}, {tag:4,km:0.844,hoehe:2448,zeit:"11:35"},
+  {tag:4,km:0.866,hoehe:2440,zeit:"11:36"}, {tag:4,km:0.866,hoehe:2433,zeit:"11:38"}, {tag:4,km:0.876,hoehe:2429,zeit:"11:39"}, {tag:4,km:0.878,hoehe:2425,zeit:"11:40"},
+  {tag:4,km:0.896,hoehe:2429,zeit:"11:41"}, {tag:4,km:0.905,hoehe:2428,zeit:"11:42"}, {tag:4,km:0.919,hoehe:2424,zeit:"11:43"}, {tag:4,km:0.919,hoehe:2418,zeit:"11:45"},
+  {tag:4,km:0.919,hoehe:2411,zeit:"11:46"}, {tag:4,km:0.919,hoehe:2404,zeit:"11:47"}, {tag:4,km:0.93,hoehe:2395,zeit:"11:48"}, {tag:4,km:0.93,hoehe:2384,zeit:"11:49"},
+  {tag:4,km:0.931,hoehe:2375,zeit:"11:50"}, {tag:4,km:0.931,hoehe:2369,zeit:"11:51"}, {tag:4,km:0.933,hoehe:2369,zeit:"11:52"}, {tag:4,km:0.934,hoehe:2367,zeit:"11:53"},
+  {tag:4,km:0.934,hoehe:2364,zeit:"11:54"}, {tag:4,km:0.934,hoehe:2365,zeit:"11:55"}, {tag:4,km:0.934,hoehe:2370,zeit:"11:56"}, {tag:4,km:0.937,hoehe:2375,zeit:"11:57"},
+  {tag:4,km:0.937,hoehe:2380,zeit:"11:58"}, {tag:4,km:0.937,hoehe:2386,zeit:"11:59"}, {tag:4,km:0.937,hoehe:2393,zeit:"12:00"}, {tag:4,km:0.937,hoehe:2401,zeit:"12:01"},
+  {tag:4,km:0.937,hoehe:2409,zeit:"12:02"}, {tag:4,km:0.937,hoehe:2410,zeit:"12:05"}, {tag:4,km:0.937,hoehe:2408,zeit:"12:06"}, {tag:4,km:0.937,hoehe:2407,zeit:"12:08"},
+  {tag:4,km:0.938,hoehe:2403,zeit:"12:09"}, {tag:4,km:0.938,hoehe:2398,zeit:"12:10"}, {tag:4,km:0.938,hoehe:2391,zeit:"12:11"}, {tag:4,km:0.938,hoehe:2385,zeit:"12:12"},
+  {tag:4,km:0.938,hoehe:2382,zeit:"12:13"}, {tag:4,km:0.938,hoehe:2376,zeit:"12:14"}, {tag:4,km:0.938,hoehe:2367,zeit:"12:15"}, {tag:4,km:0.968,hoehe:2363,zeit:"12:16"},
+  {tag:4,km:0.997,hoehe:2364,zeit:"12:17"}, {tag:4,km:1.029,hoehe:2358,zeit:"12:18"}, {tag:4,km:1.029,hoehe:2349,zeit:"12:19"}, {tag:4,km:1.03,hoehe:2339,zeit:"12:20"},
+  {tag:4,km:1.042,hoehe:2328,zeit:"12:21"}, {tag:4,km:1.043,hoehe:2321,zeit:"12:22"}, {tag:4,km:1.068,hoehe:2319,zeit:"12:23"}, {tag:4,km:1.105,hoehe:2322,zeit:"12:24"},
+  {tag:4,km:1.128,hoehe:2324,zeit:"12:25"}, {tag:4,km:1.173,hoehe:2322,zeit:"12:26"}, {tag:4,km:1.178,hoehe:2320,zeit:"12:27"}, {tag:4,km:1.194,hoehe:2320,zeit:"12:28"},
+  {tag:4,km:1.195,hoehe:2314,zeit:"12:29"}, {tag:4,km:1.195,hoehe:2304,zeit:"12:30"}, {tag:4,km:1.201,hoehe:2295,zeit:"12:31"}, {tag:4,km:1.201,hoehe:2285,zeit:"12:32"},
+  {tag:4,km:1.201,hoehe:2277,zeit:"12:33"}, {tag:4,km:1.201,hoehe:2269,zeit:"12:34"}, {tag:4,km:1.202,hoehe:2259,zeit:"12:35"}, {tag:4,km:1.209,hoehe:2249,zeit:"12:36"},
+  {tag:4,km:1.209,hoehe:2241,zeit:"12:37"}, {tag:4,km:1.215,hoehe:2233,zeit:"12:38"}, {tag:4,km:1.219,hoehe:2224,zeit:"12:39"}, {tag:4,km:1.227,hoehe:2216,zeit:"12:40"},
+  {tag:4,km:1.227,hoehe:2210,zeit:"12:41"}, {tag:4,km:1.248,hoehe:2208,zeit:"12:42"}, {tag:4,km:1.277,hoehe:2210,zeit:"12:43"}, {tag:4,km:1.281,hoehe:2210,zeit:"12:44"},
+  {tag:4,km:1.33,hoehe:2211,zeit:"12:46"}, {tag:4,km:1.364,hoehe:2216,zeit:"12:47"}, {tag:4,km:1.364,hoehe:2220,zeit:"12:48"}, {tag:4,km:1.398,hoehe:2224,zeit:"12:49"},
+  {tag:4,km:1.408,hoehe:2227,zeit:"12:50"}, {tag:4,km:1.411,hoehe:2228,zeit:"12:51"}, {tag:4,km:1.416,hoehe:2227,zeit:"12:53"}, {tag:4,km:1.434,hoehe:2223,zeit:"12:54"},
+  {tag:4,km:1.439,hoehe:2222,zeit:"12:55"}, {tag:4,km:1.44,hoehe:2223,zeit:"13:09"}, {tag:4,km:1.458,hoehe:2226,zeit:"13:14"}, {tag:4,km:1.473,hoehe:2226,zeit:"13:15"},
+  {tag:4,km:1.48,hoehe:2224,zeit:"13:16"}, {tag:4,km:1.5,hoehe:2219,zeit:"13:17"}, {tag:4,km:1.529,hoehe:2212,zeit:"13:18"}, {tag:4,km:1.535,hoehe:2209,zeit:"13:20"},
+  {tag:4,km:1.535,hoehe:2207,zeit:"13:24"}, {tag:4,km:1.535,hoehe:2208,zeit:"13:26"}, {tag:4,km:1.541,hoehe:2213,zeit:"13:30"}, {tag:4,km:1.547,hoehe:2218,zeit:"13:31"},
+  {tag:4,km:1.547,hoehe:2223,zeit:"13:32"}, {tag:4,km:1.567,hoehe:2226,zeit:"13:33"}, {tag:4,km:1.593,hoehe:2227,zeit:"13:34"}, {tag:4,km:1.642,hoehe:2222,zeit:"13:35"},
+  {tag:4,km:1.673,hoehe:2216,zeit:"13:36"}, {tag:4,km:1.707,hoehe:2207,zeit:"13:37"}, {tag:4,km:1.715,hoehe:2203,zeit:"13:38"}, {tag:4,km:1.722,hoehe:2199,zeit:"13:39"},
+  {tag:4,km:1.723,hoehe:2200,zeit:"13:40"}, {tag:4,km:1.723,hoehe:2207,zeit:"13:41"}, {tag:4,km:1.723,hoehe:2214,zeit:"13:42"}, {tag:4,km:1.723,hoehe:2222,zeit:"13:43"},
+  {tag:4,km:1.723,hoehe:2231,zeit:"13:44"}, {tag:4,km:1.723,hoehe:2237,zeit:"13:45"}, {tag:4,km:1.723,hoehe:2243,zeit:"13:46"}, {tag:4,km:1.723,hoehe:2250,zeit:"13:47"},
+  {tag:4,km:1.723,hoehe:2257,zeit:"13:48"}, {tag:4,km:1.746,hoehe:2263,zeit:"13:49"}, {tag:4,km:1.746,hoehe:2261,zeit:"13:50"}, {tag:4,km:1.748,hoehe:2256,zeit:"13:51"},
+  {tag:4,km:1.781,hoehe:2251,zeit:"13:52"}, {tag:4,km:1.799,hoehe:2247,zeit:"13:53"}, {tag:4,km:1.802,hoehe:2245,zeit:"13:54"}, {tag:4,km:1.841,hoehe:2248,zeit:"13:55"},
+  {tag:4,km:1.841,hoehe:2254,zeit:"13:56"}, {tag:4,km:1.841,hoehe:2261,zeit:"13:57"}, {tag:4,km:1.841,hoehe:2269,zeit:"13:58"}, {tag:4,km:1.841,hoehe:2275,zeit:"13:59"},
+  {tag:4,km:1.841,hoehe:2281,zeit:"14:00"}, {tag:4,km:1.841,hoehe:2288,zeit:"14:01"}, {tag:4,km:1.841,hoehe:2294,zeit:"14:02"}, {tag:4,km:1.841,hoehe:2301,zeit:"14:03"},
+  {tag:4,km:1.841,hoehe:2307,zeit:"14:04"}, {tag:4,km:1.841,hoehe:2313,zeit:"14:05"}, {tag:4,km:1.841,hoehe:2319,zeit:"14:06"}, {tag:4,km:1.841,hoehe:2326,zeit:"14:07"},
+  {tag:4,km:1.841,hoehe:2333,zeit:"14:08"}, {tag:4,km:1.841,hoehe:2340,zeit:"14:09"}, {tag:4,km:1.841,hoehe:2344,zeit:"14:10"}, {tag:4,km:1.841,hoehe:2348,zeit:"14:11"},
+  {tag:4,km:1.841,hoehe:2355,zeit:"14:12"}, {tag:4,km:1.841,hoehe:2362,zeit:"14:13"}, {tag:4,km:1.841,hoehe:2369,zeit:"14:14"}, {tag:4,km:1.843,hoehe:2377,zeit:"14:15"},
+  {tag:4,km:1.843,hoehe:2384,zeit:"14:16"}, {tag:4,km:1.843,hoehe:2389,zeit:"14:17"}, {tag:4,km:1.843,hoehe:2394,zeit:"14:18"}, {tag:4,km:1.843,hoehe:2400,zeit:"14:19"},
+  {tag:4,km:1.843,hoehe:2407,zeit:"14:20"}, {tag:4,km:1.843,hoehe:2411,zeit:"14:21"}, {tag:4,km:1.843,hoehe:2415,zeit:"14:22"}, {tag:4,km:1.843,hoehe:2418,zeit:"14:24"},
+  {tag:4,km:1.844,hoehe:2422,zeit:"14:25"}, {tag:4,km:1.864,hoehe:2429,zeit:"14:26"}, {tag:4,km:1.864,hoehe:2436,zeit:"14:27"}, {tag:4,km:1.864,hoehe:2443,zeit:"14:28"},
+  {tag:4,km:1.864,hoehe:2451,zeit:"14:29"}, {tag:4,km:1.866,hoehe:2457,zeit:"14:30"}, {tag:4,km:1.872,hoehe:2460,zeit:"14:39"}, {tag:4,km:1.872,hoehe:2459,zeit:"14:40"},
+  {tag:4,km:1.872,hoehe:2457,zeit:"14:41"}, {tag:4,km:1.872,hoehe:2454,zeit:"14:42"}, {tag:4,km:1.872,hoehe:2448,zeit:"14:43"}, {tag:4,km:1.872,hoehe:2439,zeit:"14:44"},
+  {tag:4,km:1.881,hoehe:2430,zeit:"14:45"}, {tag:4,km:1.881,hoehe:2420,zeit:"14:46"}, {tag:4,km:1.881,hoehe:2410,zeit:"14:47"}, {tag:4,km:1.881,hoehe:2399,zeit:"14:48"},
+  {tag:4,km:1.881,hoehe:2389,zeit:"14:49"}, {tag:4,km:1.889,hoehe:2381,zeit:"14:50"}, {tag:4,km:1.892,hoehe:2374,zeit:"14:51"}, {tag:4,km:1.895,hoehe:2363,zeit:"14:52"},
+  {tag:4,km:1.901,hoehe:2353,zeit:"14:53"}, {tag:4,km:1.938,hoehe:2345,zeit:"14:54"}, {tag:4,km:1.945,hoehe:2339,zeit:"14:56"}, {tag:4,km:1.946,hoehe:2337,zeit:"14:57"},
+  {tag:4,km:1.946,hoehe:2335,zeit:"14:58"}, {tag:4,km:1.946,hoehe:2332,zeit:"14:59"}, {tag:4,km:1.952,hoehe:2333,zeit:"15:00"}, {tag:4,km:1.952,hoehe:2336,zeit:"15:01"},
+  {tag:4,km:1.952,hoehe:2340,zeit:"15:02"}, {tag:4,km:1.952,hoehe:2345,zeit:"15:03"}, {tag:4,km:1.952,hoehe:2347,zeit:"15:04"}, {tag:4,km:1.961,hoehe:2351,zeit:"15:05"},
+  {tag:4,km:1.962,hoehe:2353,zeit:"15:06"}, {tag:4,km:1.962,hoehe:2357,zeit:"15:07"}, {tag:4,km:1.966,hoehe:2362,zeit:"15:08"}, {tag:4,km:1.966,hoehe:2368,zeit:"15:09"},
+  {tag:4,km:1.967,hoehe:2369,zeit:"15:10"}, {tag:4,km:1.967,hoehe:2368,zeit:"15:14"}, {tag:4,km:1.967,hoehe:2366,zeit:"15:17"}, {tag:4,km:1.976,hoehe:2362,zeit:"15:18"},
+  {tag:4,km:2.038,hoehe:2361,zeit:"15:19"}, {tag:4,km:2.043,hoehe:2367,zeit:"15:20"}, {tag:4,km:2.06,hoehe:2373,zeit:"15:21"}, {tag:4,km:2.064,hoehe:2379,zeit:"15:22"},
+  {tag:4,km:2.072,hoehe:2381,zeit:"15:23"}, {tag:4,km:2.082,hoehe:2385,zeit:"15:24"}, {tag:4,km:2.083,hoehe:2391,zeit:"15:25"}, {tag:4,km:2.09,hoehe:2395,zeit:"15:26"},
+  {tag:4,km:2.152,hoehe:2397,zeit:"15:27"}, {tag:4,km:2.168,hoehe:2398,zeit:"15:28"}, {tag:4,km:2.188,hoehe:2397,zeit:"15:29"}, {tag:4,km:2.214,hoehe:2391,zeit:"15:30"},
+  {tag:4,km:2.286,hoehe:2382,zeit:"15:31"}, {tag:4,km:2.33,hoehe:2376,zeit:"15:32"}, {tag:4,km:2.371,hoehe:2372,zeit:"15:33"}, {tag:4,km:2.376,hoehe:2368,zeit:"15:34"},
+  {tag:4,km:2.378,hoehe:2360,zeit:"15:35"}, {tag:4,km:2.379,hoehe:2351,zeit:"15:36"}, {tag:4,km:2.379,hoehe:2343,zeit:"15:37"}, {tag:4,km:2.381,hoehe:2344,zeit:"15:38"},
+  {tag:4,km:2.381,hoehe:2350,zeit:"15:39"}, {tag:4,km:2.382,hoehe:2349,zeit:"15:40"}, {tag:4,km:2.382,hoehe:2347,zeit:"15:41"}, {tag:4,km:2.382,hoehe:2346,zeit:"15:42"},
+  {tag:4,km:2.389,hoehe:2346,zeit:"15:43"}, {tag:4,km:2.39,hoehe:2346,zeit:"15:44"}, {tag:4,km:2.391,hoehe:2349,zeit:"15:45"}, {tag:4,km:2.392,hoehe:2354,zeit:"15:46"},
+  {tag:4,km:2.392,hoehe:2357,zeit:"15:47"}, {tag:4,km:2.394,hoehe:2354,zeit:"15:50"}, {tag:4,km:2.421,hoehe:2347,zeit:"15:51"}, {tag:4,km:2.421,hoehe:2338,zeit:"15:52"},
+  {tag:4,km:2.425,hoehe:2333,zeit:"15:53"}, {tag:4,km:2.425,hoehe:2337,zeit:"15:54"}, {tag:4,km:2.425,hoehe:2341,zeit:"15:55"}, {tag:4,km:2.439,hoehe:2344,zeit:"15:56"},
+  {tag:4,km:2.44,hoehe:2344,zeit:"15:58"}, {tag:4,km:2.454,hoehe:2340,zeit:"15:59"}, {tag:4,km:2.455,hoehe:2338,zeit:"16:00"}, {tag:4,km:2.457,hoehe:2337,zeit:"16:06"},
+  {tag:4,km:2.457,hoehe:2336,zeit:"16:08"}, {tag:4,km:2.461,hoehe:2338,zeit:"16:12"}, {tag:4,km:2.464,hoehe:2341,zeit:"16:14"}, {tag:4,km:2.464,hoehe:2347,zeit:"16:15"},
+  {tag:4,km:2.464,hoehe:2354,zeit:"16:16"}, {tag:4,km:2.464,hoehe:2360,zeit:"16:17"}, {tag:4,km:2.464,hoehe:2366,zeit:"16:18"}, {tag:4,km:2.464,hoehe:2373,zeit:"16:19"},
+  {tag:4,km:2.464,hoehe:2379,zeit:"16:20"}, {tag:4,km:2.464,hoehe:2385,zeit:"16:21"}, {tag:4,km:2.464,hoehe:2392,zeit:"16:22"}, {tag:4,km:2.464,hoehe:2399,zeit:"16:23"},
+  {tag:4,km:2.464,hoehe:2406,zeit:"16:24"}, {tag:4,km:2.464,hoehe:2412,zeit:"16:25"}, {tag:4,km:2.464,hoehe:2419,zeit:"16:26"}, {tag:4,km:2.464,hoehe:2424,zeit:"16:27"},
+  {tag:4,km:2.505,hoehe:2427,zeit:"16:29"}, {tag:4,km:2.505,hoehe:2432,zeit:"16:30"}, {tag:4,km:2.505,hoehe:2437,zeit:"16:31"}, {tag:4,km:2.505,hoehe:2441,zeit:"16:33"},
+  {tag:4,km:2.505,hoehe:2445,zeit:"16:34"}, {tag:4,km:2.505,hoehe:2453,zeit:"16:35"}, {tag:4,km:2.505,hoehe:2461,zeit:"16:36"}, {tag:4,km:2.505,hoehe:2469,zeit:"16:37"},
+  {tag:4,km:2.505,hoehe:2474,zeit:"16:38"}, {tag:4,km:2.508,hoehe:2473,zeit:"16:39"}, {tag:4,km:2.545,hoehe:2469,zeit:"16:40"}, {tag:4,km:2.571,hoehe:2462,zeit:"16:42"},
+  {tag:4,km:2.571,hoehe:2458,zeit:"16:43"}, {tag:4,km:2.571,hoehe:2456,zeit:"16:44"}, {tag:4,km:2.571,hoehe:2452,zeit:"16:45"}, {tag:4,km:2.614,hoehe:2449,zeit:"16:46"},
+  {tag:4,km:2.614,hoehe:2443,zeit:"16:47"}, {tag:4,km:2.641,hoehe:2436,zeit:"16:48"}, {tag:4,km:2.641,hoehe:2433,zeit:"16:49"}, {tag:4,km:2.641,hoehe:2431,zeit:"16:51"},
+  {tag:4,km:2.641,hoehe:2429,zeit:"16:52"}, {tag:4,km:2.641,hoehe:2426,zeit:"16:53"}, {tag:4,km:2.641,hoehe:2423,zeit:"16:54"}, {tag:4,km:2.641,hoehe:2426,zeit:"16:55"},
+  {tag:4,km:2.641,hoehe:2426,zeit:"16:56"}, {tag:4,km:2.641,hoehe:2423,zeit:"16:57"}, {tag:4,km:2.643,hoehe:2416,zeit:"16:59"}, {tag:4,km:2.645,hoehe:2417,zeit:"17:00"},
+  {tag:4,km:2.65,hoehe:2412,zeit:"17:01"}, {tag:4,km:2.693,hoehe:2408,zeit:"17:02"}, {tag:4,km:2.715,hoehe:2406,zeit:"17:03"}, {tag:4,km:2.716,hoehe:2403,zeit:"17:04"},
+  {tag:4,km:2.716,hoehe:2400,zeit:"17:05"}, {tag:4,km:2.716,hoehe:2394,zeit:"17:06"}, {tag:4,km:2.718,hoehe:2387,zeit:"17:07"}, {tag:4,km:2.718,hoehe:2379,zeit:"17:08"},
+  {tag:4,km:2.718,hoehe:2371,zeit:"17:09"}, {tag:4,km:2.719,hoehe:2365,zeit:"17:10"}, {tag:4,km:2.732,hoehe:2358,zeit:"17:11"}, {tag:4,km:2.735,hoehe:2361,zeit:"17:12"},
+  {tag:4,km:2.75,hoehe:2365,zeit:"17:13"}, {tag:4,km:2.751,hoehe:2370,zeit:"17:14"}, {tag:4,km:2.751,hoehe:2375,zeit:"17:15"}, {tag:4,km:2.791,hoehe:2377,zeit:"17:16"},
+  {tag:4,km:2.805,hoehe:2378,zeit:"17:20"}, {tag:4,km:2.805,hoehe:2379,zeit:"17:23"}, {tag:4,km:2.805,hoehe:2380,zeit:"17:24"}, {tag:4,km:2.812,hoehe:2381,zeit:"17:26"},
+  {tag:4,km:2.814,hoehe:2386,zeit:"17:27"}, {tag:4,km:2.814,hoehe:2393,zeit:"17:28"}, {tag:4,km:2.814,hoehe:2399,zeit:"17:29"}, {tag:4,km:2.814,hoehe:2404,zeit:"17:30"},
+  {tag:4,km:2.814,hoehe:2409,zeit:"17:31"}, {tag:4,km:2.814,hoehe:2417,zeit:"17:32"}, {tag:4,km:2.816,hoehe:2423,zeit:"17:33"}, {tag:4,km:2.816,hoehe:2429,zeit:"17:34"},
+  {tag:4,km:2.816,hoehe:2435,zeit:"17:35"}, {tag:4,km:2.816,hoehe:2441,zeit:"17:36"}, {tag:4,km:2.816,hoehe:2447,zeit:"17:37"}, {tag:4,km:2.818,hoehe:2453,zeit:"17:38"},
+  {tag:4,km:2.818,hoehe:2460,zeit:"17:39"}, {tag:4,km:2.818,hoehe:2465,zeit:"17:40"}, {tag:4,km:2.818,hoehe:2470,zeit:"17:41"}, {tag:4,km:2.818,hoehe:2475,zeit:"17:42"},
+  {tag:4,km:2.818,hoehe:2480,zeit:"17:43"}, {tag:4,km:2.818,hoehe:2486,zeit:"17:44"}, {tag:4,km:2.818,hoehe:2493,zeit:"17:45"}, {tag:4,km:2.818,hoehe:2499,zeit:"17:46"},
+  {tag:4,km:2.822,hoehe:2499,zeit:"17:52"}, {tag:4,km:2.822,hoehe:2492,zeit:"17:53"}, {tag:4,km:2.825,hoehe:2483,zeit:"17:54"}, {tag:4,km:2.825,hoehe:2475,zeit:"17:55"},
+  {tag:4,km:2.825,hoehe:2466,zeit:"17:56"}, {tag:4,km:2.827,hoehe:2457,zeit:"17:57"}, {tag:4,km:2.829,hoehe:2445,zeit:"17:58"}, {tag:4,km:2.842,hoehe:2435,zeit:"17:59"},
+  {tag:4,km:2.848,hoehe:2425,zeit:"18:00"}, {tag:4,km:2.848,hoehe:2416,zeit:"18:01"}, {tag:4,km:2.848,hoehe:2406,zeit:"18:02"}, {tag:4,km:2.861,hoehe:2397,zeit:"18:03"},
+  {tag:4,km:2.866,hoehe:2393,zeit:"18:04"}, {tag:4,km:2.871,hoehe:2394,zeit:"18:08"}, {tag:4,km:2.923,hoehe:2393,zeit:"18:09"}, {tag:4,km:2.962,hoehe:2388,zeit:"18:10"},
+  {tag:4,km:2.976,hoehe:2383,zeit:"18:11"}, {tag:4,km:2.998,hoehe:2375,zeit:"18:12"}, {tag:4,km:3.018,hoehe:2367,zeit:"18:13"}, {tag:4,km:3.04,hoehe:2357,zeit:"18:14"},
+  {tag:4,km:3.059,hoehe:2349,zeit:"18:15"}, {tag:4,km:3.079,hoehe:2341,zeit:"18:16"}, {tag:4,km:3.092,hoehe:2334,zeit:"18:17"}, {tag:4,km:3.133,hoehe:2332,zeit:"18:18"},
+  {tag:4,km:3.188,hoehe:2332,zeit:"18:19"}, {tag:4,km:3.228,hoehe:2329,zeit:"18:20"}, {tag:4,km:3.283,hoehe:2324,zeit:"18:21"}, {tag:4,km:3.316,hoehe:2327,zeit:"18:22"},
+  {tag:4,km:3.337,hoehe:2326,zeit:"18:24"}, {tag:4,km:3.371,hoehe:2325,zeit:"18:25"}, {tag:4,km:3.374,hoehe:2327,zeit:"18:26"}, {tag:5,km:0,hoehe:2258,zeit:"08:51"},
+  {tag:5,km:0.01,hoehe:2261,zeit:"08:52"}, {tag:5,km:0.049,hoehe:2263,zeit:"08:53"}, {tag:5,km:0.049,hoehe:2265,zeit:"08:54"}, {tag:5,km:0.068,hoehe:2264,zeit:"08:56"},
+  {tag:5,km:0.116,hoehe:2262,zeit:"08:57"}, {tag:5,km:0.157,hoehe:2266,zeit:"08:58"}, {tag:5,km:0.175,hoehe:2266,zeit:"08:59"}, {tag:5,km:0.175,hoehe:2263,zeit:"09:04"},
+  {tag:5,km:0.175,hoehe:2265,zeit:"09:08"}, {tag:5,km:0.195,hoehe:2266,zeit:"09:09"}, {tag:5,km:0.228,hoehe:2262,zeit:"09:10"}, {tag:5,km:0.283,hoehe:2263,zeit:"09:11"},
+  {tag:5,km:0.29,hoehe:2265,zeit:"09:12"}, {tag:5,km:0.292,hoehe:2270,zeit:"09:16"}, {tag:5,km:0.317,hoehe:2276,zeit:"09:17"}, {tag:5,km:0.342,hoehe:2281,zeit:"09:18"},
+  {tag:5,km:0.343,hoehe:2288,zeit:"09:19"}, {tag:5,km:0.344,hoehe:2295,zeit:"09:20"}, {tag:5,km:0.372,hoehe:2298,zeit:"09:21"}, {tag:5,km:0.372,hoehe:2300,zeit:"09:27"},
+  {tag:5,km:0.372,hoehe:2304,zeit:"09:28"}, {tag:5,km:0.377,hoehe:2309,zeit:"09:29"}, {tag:5,km:0.383,hoehe:2312,zeit:"09:30"}, {tag:5,km:0.392,hoehe:2313,zeit:"09:31"},
+  {tag:5,km:0.43,hoehe:2315,zeit:"09:32"}, {tag:5,km:0.454,hoehe:2310,zeit:"09:35"}, {tag:5,km:0.484,hoehe:2299,zeit:"09:36"}, {tag:5,km:0.492,hoehe:2289,zeit:"09:37"},
+  {tag:5,km:0.492,hoehe:2280,zeit:"09:38"}, {tag:5,km:0.492,hoehe:2271,zeit:"09:39"}, {tag:5,km:0.492,hoehe:2265,zeit:"09:43"}, {tag:5,km:0.492,hoehe:2263,zeit:"09:45"},
+  {tag:5,km:0.492,hoehe:2256,zeit:"09:46"}, {tag:5,km:0.492,hoehe:2250,zeit:"09:52"}, {tag:5,km:0.493,hoehe:2247,zeit:"09:53"}, {tag:5,km:0.493,hoehe:2244,zeit:"09:54"},
+  {tag:5,km:0.493,hoehe:2241,zeit:"09:55"}, {tag:5,km:0.493,hoehe:2235,zeit:"09:56"}, {tag:5,km:0.493,hoehe:2230,zeit:"09:57"}, {tag:5,km:0.5,hoehe:2226,zeit:"09:58"},
+  {tag:5,km:0.5,hoehe:2221,zeit:"09:59"}, {tag:5,km:0.5,hoehe:2215,zeit:"10:00"}, {tag:5,km:0.501,hoehe:2206,zeit:"10:01"}, {tag:5,km:0.508,hoehe:2197,zeit:"10:02"},
+  {tag:5,km:0.509,hoehe:2187,zeit:"10:03"}, {tag:5,km:0.557,hoehe:2177,zeit:"10:04"}, {tag:5,km:0.587,hoehe:2168,zeit:"10:05"}, {tag:5,km:0.626,hoehe:2159,zeit:"10:06"},
+  {tag:5,km:0.632,hoehe:2151,zeit:"10:07"}, {tag:5,km:0.653,hoehe:2147,zeit:"10:08"}, {tag:5,km:0.673,hoehe:2148,zeit:"10:09"}, {tag:5,km:0.686,hoehe:2145,zeit:"10:10"},
+  {tag:5,km:0.709,hoehe:2140,zeit:"10:12"}, {tag:5,km:0.722,hoehe:2131,zeit:"10:13"}, {tag:5,km:0.744,hoehe:2121,zeit:"10:14"}, {tag:5,km:0.786,hoehe:2112,zeit:"10:15"},
+  {tag:5,km:0.822,hoehe:2105,zeit:"10:16"}, {tag:5,km:0.84,hoehe:2101,zeit:"10:17"}, {tag:5,km:0.868,hoehe:2100,zeit:"10:18"}, {tag:5,km:0.887,hoehe:2103,zeit:"10:19"},
+  {tag:5,km:0.903,hoehe:2103,zeit:"10:20"}, {tag:5,km:0.927,hoehe:2101,zeit:"10:21"}, {tag:5,km:0.947,hoehe:2094,zeit:"10:22"}, {tag:5,km:0.948,hoehe:2089,zeit:"10:23"},
+  {tag:5,km:0.967,hoehe:2083,zeit:"10:24"}, {tag:5,km:0.984,hoehe:2075,zeit:"10:25"}, {tag:5,km:0.988,hoehe:2078,zeit:"10:26"}, {tag:5,km:0.988,hoehe:2084,zeit:"10:27"},
+  {tag:5,km:0.99,hoehe:2089,zeit:"10:28"}, {tag:5,km:0.997,hoehe:2095,zeit:"10:29"}, {tag:5,km:0.997,hoehe:2103,zeit:"10:30"}, {tag:5,km:0.997,hoehe:2111,zeit:"10:31"},
+  {tag:5,km:0.997,hoehe:2118,zeit:"10:32"}, {tag:5,km:0.997,hoehe:2125,zeit:"10:33"}, {tag:5,km:0.998,hoehe:2134,zeit:"10:34"}, {tag:5,km:0.998,hoehe:2140,zeit:"10:35"},
+  {tag:5,km:0.998,hoehe:2145,zeit:"10:36"}, {tag:5,km:0.998,hoehe:2154,zeit:"10:37"}, {tag:5,km:0.998,hoehe:2161,zeit:"10:38"}, {tag:5,km:0.998,hoehe:2169,zeit:"10:39"},
+  {tag:5,km:0.999,hoehe:2175,zeit:"10:40"}, {tag:5,km:0.999,hoehe:2182,zeit:"10:41"}, {tag:5,km:0.999,hoehe:2188,zeit:"10:42"}, {tag:5,km:0.999,hoehe:2189,zeit:"10:43"},
+  {tag:5,km:1.026,hoehe:2185,zeit:"10:45"}, {tag:5,km:1.053,hoehe:2181,zeit:"10:46"}, {tag:5,km:1.079,hoehe:2184,zeit:"10:47"}, {tag:5,km:1.091,hoehe:2183,zeit:"10:48"},
+  {tag:5,km:1.118,hoehe:2187,zeit:"10:49"}, {tag:5,km:1.128,hoehe:2191,zeit:"10:50"}, {tag:5,km:1.132,hoehe:2193,zeit:"10:51"}, {tag:5,km:1.168,hoehe:2194,zeit:"10:52"},
+  {tag:5,km:1.175,hoehe:2193,zeit:"10:53"}, {tag:5,km:1.175,hoehe:2191,zeit:"10:54"}, {tag:5,km:1.181,hoehe:2188,zeit:"10:55"}, {tag:5,km:1.183,hoehe:2194,zeit:"10:56"},
+  {tag:5,km:1.183,hoehe:2201,zeit:"10:57"}, {tag:5,km:1.183,hoehe:2202,zeit:"10:58"}, {tag:5,km:1.183,hoehe:2200,zeit:"10:59"}, {tag:5,km:1.183,hoehe:2198,zeit:"11:00"},
+  {tag:5,km:1.183,hoehe:2194,zeit:"11:01"}, {tag:5,km:1.183,hoehe:2190,zeit:"11:02"}, {tag:5,km:1.198,hoehe:2184,zeit:"11:08"}, {tag:5,km:1.199,hoehe:2186,zeit:"11:09"},
+  {tag:5,km:1.199,hoehe:2192,zeit:"11:10"}, {tag:5,km:1.201,hoehe:2196,zeit:"11:11"}, {tag:5,km:1.202,hoehe:2201,zeit:"11:12"}, {tag:5,km:1.202,hoehe:2205,zeit:"11:13"},
+  {tag:5,km:1.202,hoehe:2209,zeit:"11:14"}, {tag:5,km:1.205,hoehe:2212,zeit:"11:15"}, {tag:5,km:1.216,hoehe:2209,zeit:"11:16"}, {tag:5,km:1.225,hoehe:2205,zeit:"11:17"},
+  {tag:5,km:1.245,hoehe:2202,zeit:"11:18"}, {tag:5,km:1.261,hoehe:2207,zeit:"11:19"}, {tag:5,km:1.269,hoehe:2214,zeit:"11:20"}, {tag:5,km:1.29,hoehe:2222,zeit:"11:21"},
+  {tag:5,km:1.291,hoehe:2229,zeit:"11:22"}, {tag:5,km:1.301,hoehe:2235,zeit:"11:23"}, {tag:5,km:1.301,hoehe:2240,zeit:"11:24"}, {tag:5,km:1.302,hoehe:2241,zeit:"11:26"},
+  {tag:5,km:1.302,hoehe:2243,zeit:"11:28"}, {tag:5,km:1.302,hoehe:2247,zeit:"11:29"}, {tag:5,km:1.302,hoehe:2253,zeit:"11:30"}, {tag:5,km:1.302,hoehe:2259,zeit:"11:31"},
+  {tag:5,km:1.302,hoehe:2266,zeit:"11:32"}, {tag:5,km:1.302,hoehe:2272,zeit:"11:33"}, {tag:5,km:1.302,hoehe:2279,zeit:"11:34"}, {tag:5,km:1.302,hoehe:2286,zeit:"11:35"},
+  {tag:5,km:1.303,hoehe:2292,zeit:"11:36"}, {tag:5,km:1.304,hoehe:2299,zeit:"11:37"}, {tag:5,km:1.304,hoehe:2303,zeit:"11:38"}, {tag:5,km:1.304,hoehe:2301,zeit:"11:40"},
+  {tag:5,km:1.328,hoehe:2296,zeit:"11:41"}, {tag:5,km:1.357,hoehe:2291,zeit:"11:42"}, {tag:5,km:1.369,hoehe:2283,zeit:"11:43"}, {tag:5,km:1.426,hoehe:2273,zeit:"11:44"},
+  {tag:5,km:1.487,hoehe:2264,zeit:"11:45"}, {tag:5,km:1.548,hoehe:2257,zeit:"11:46"}, {tag:5,km:1.557,hoehe:2259,zeit:"11:49"}, {tag:5,km:1.558,hoehe:2265,zeit:"11:50"},
+  {tag:5,km:1.558,hoehe:2273,zeit:"11:51"}, {tag:5,km:1.558,hoehe:2280,zeit:"11:52"}, {tag:5,km:1.558,hoehe:2285,zeit:"11:53"}, {tag:5,km:1.559,hoehe:2292,zeit:"11:54"},
+  {tag:5,km:1.559,hoehe:2297,zeit:"11:55"}, {tag:5,km:1.559,hoehe:2303,zeit:"11:56"}, {tag:5,km:1.559,hoehe:2306,zeit:"11:57"}, {tag:5,km:1.559,hoehe:2307,zeit:"11:58"},
+  {tag:5,km:1.559,hoehe:2307,zeit:"11:59"}, {tag:5,km:1.57,hoehe:2306,zeit:"12:00"}, {tag:5,km:1.657,hoehe:2304,zeit:"12:01"}, {tag:5,km:1.741,hoehe:2305,zeit:"12:02"},
+  {tag:5,km:1.817,hoehe:2305,zeit:"12:03"}, {tag:5,km:1.869,hoehe:2299,zeit:"12:04"}, {tag:5,km:1.955,hoehe:2295,zeit:"12:05"}, {tag:5,km:1.957,hoehe:2300,zeit:"12:06"},
+  {tag:5,km:1.963,hoehe:2306,zeit:"12:07"}, {tag:5,km:1.963,hoehe:2312,zeit:"12:08"}, {tag:5,km:1.963,hoehe:2319,zeit:"12:09"}, {tag:5,km:1.979,hoehe:2319,zeit:"12:10"},
+  {tag:5,km:1.98,hoehe:2315,zeit:"12:11"}, {tag:5,km:1.993,hoehe:2309,zeit:"12:12"}, {tag:5,km:1.995,hoehe:2300,zeit:"12:13"}, {tag:5,km:1.996,hoehe:2295,zeit:"12:14"},
+  {tag:5,km:2.001,hoehe:2296,zeit:"12:15"}, {tag:5,km:2.001,hoehe:2300,zeit:"12:16"}, {tag:5,km:2.01,hoehe:2304,zeit:"12:17"}, {tag:5,km:2.01,hoehe:2310,zeit:"12:18"},
+  {tag:5,km:2.01,hoehe:2315,zeit:"12:19"}, {tag:5,km:2.01,hoehe:2321,zeit:"12:20"}, {tag:5,km:2.01,hoehe:2326,zeit:"12:21"}, {tag:5,km:2.01,hoehe:2326,zeit:"12:23"},
+  {tag:5,km:2.013,hoehe:2328,zeit:"12:45"}, {tag:5,km:2.013,hoehe:2327,zeit:"12:46"}, {tag:5,km:2.013,hoehe:2332,zeit:"12:47"}, {tag:5,km:2.013,hoehe:2339,zeit:"12:48"},
+  {tag:5,km:2.013,hoehe:2347,zeit:"12:49"}, {tag:5,km:2.013,hoehe:2355,zeit:"12:50"}, {tag:5,km:2.013,hoehe:2361,zeit:"12:51"}, {tag:5,km:2.013,hoehe:2368,zeit:"12:52"},
+  {tag:5,km:2.013,hoehe:2376,zeit:"12:53"}, {tag:5,km:2.013,hoehe:2383,zeit:"12:54"}, {tag:5,km:2.013,hoehe:2389,zeit:"12:55"}, {tag:5,km:2.013,hoehe:2395,zeit:"12:56"},
+  {tag:5,km:2.014,hoehe:2403,zeit:"12:57"}, {tag:5,km:2.014,hoehe:2410,zeit:"12:58"}, {tag:5,km:2.014,hoehe:2416,zeit:"12:59"}, {tag:5,km:2.014,hoehe:2420,zeit:"13:00"},
+  {tag:5,km:2.014,hoehe:2425,zeit:"13:01"}, {tag:5,km:2.014,hoehe:2431,zeit:"13:02"}, {tag:5,km:2.014,hoehe:2437,zeit:"13:03"}, {tag:5,km:2.014,hoehe:2443,zeit:"13:04"},
+  {tag:5,km:2.014,hoehe:2449,zeit:"13:05"}, {tag:5,km:2.015,hoehe:2454,zeit:"13:06"}, {tag:5,km:2.015,hoehe:2461,zeit:"13:07"}, {tag:5,km:2.015,hoehe:2466,zeit:"13:08"},
+  {tag:5,km:2.015,hoehe:2466,zeit:"13:09"}, {tag:5,km:2.04,hoehe:2465,zeit:"13:10"}, {tag:5,km:2.051,hoehe:2465,zeit:"13:11"}, {tag:5,km:2.051,hoehe:2462,zeit:"13:12"},
+  {tag:5,km:2.064,hoehe:2458,zeit:"13:13"}, {tag:5,km:2.102,hoehe:2452,zeit:"13:14"}, {tag:5,km:2.13,hoehe:2452,zeit:"13:15"}, {tag:5,km:2.13,hoehe:2457,zeit:"13:16"},
+  {tag:5,km:2.13,hoehe:2464,zeit:"13:17"}, {tag:5,km:2.131,hoehe:2472,zeit:"13:18"}, {tag:5,km:2.131,hoehe:2475,zeit:"13:20"}, {tag:5,km:2.131,hoehe:2474,zeit:"13:22"},
+  {tag:5,km:2.131,hoehe:2470,zeit:"13:23"}, {tag:5,km:2.131,hoehe:2463,zeit:"13:24"}, {tag:5,km:2.131,hoehe:2455,zeit:"13:25"}, {tag:5,km:2.131,hoehe:2446,zeit:"13:26"},
+  {tag:5,km:2.131,hoehe:2437,zeit:"13:27"}, {tag:5,km:2.131,hoehe:2430,zeit:"13:28"}, {tag:5,km:2.131,hoehe:2423,zeit:"13:29"}, {tag:5,km:2.131,hoehe:2415,zeit:"13:30"},
+  {tag:5,km:2.132,hoehe:2405,zeit:"13:31"}, {tag:5,km:2.132,hoehe:2397,zeit:"13:32"}, {tag:5,km:2.133,hoehe:2389,zeit:"13:33"}, {tag:5,km:2.133,hoehe:2380,zeit:"13:34"},
+  {tag:5,km:2.133,hoehe:2370,zeit:"13:35"}, {tag:5,km:2.133,hoehe:2362,zeit:"13:36"}, {tag:5,km:2.133,hoehe:2355,zeit:"13:37"}, {tag:5,km:2.158,hoehe:2348,zeit:"13:38"},
+  {tag:5,km:2.158,hoehe:2340,zeit:"13:39"}, {tag:5,km:2.166,hoehe:2332,zeit:"13:40"}, {tag:5,km:2.193,hoehe:2324,zeit:"13:41"}, {tag:5,km:2.196,hoehe:2316,zeit:"13:42"},
+  {tag:5,km:2.196,hoehe:2307,zeit:"13:43"}, {tag:5,km:2.23,hoehe:2297,zeit:"13:44"}, {tag:5,km:2.252,hoehe:2288,zeit:"13:45"}, {tag:5,km:2.278,hoehe:2279,zeit:"13:46"},
+  {tag:5,km:2.311,hoehe:2272,zeit:"13:47"}, {tag:5,km:2.345,hoehe:2270,zeit:"13:48"}, {tag:5,km:2.385,hoehe:2271,zeit:"13:50"}, {tag:5,km:2.386,hoehe:2268,zeit:"13:51"},
+  {tag:5,km:2.386,hoehe:2270,zeit:"13:52"}, {tag:5,km:2.404,hoehe:2268,zeit:"13:53"}, {tag:5,km:2.41,hoehe:2268,zeit:"13:54"}, {tag:5,km:2.437,hoehe:2271,zeit:"13:56"},
+  {tag:5,km:2.445,hoehe:2269,zeit:"13:57"}, {tag:5,km:2.462,hoehe:2270,zeit:"13:58"}, {tag:5,km:2.485,hoehe:2270,zeit:"13:59"}, {tag:5,km:2.486,hoehe:2269,zeit:"14:01"},
+  {tag:5,km:2.497,hoehe:2268,zeit:"14:02"}, {tag:5,km:2.497,hoehe:2267,zeit:"14:03"}, {tag:5,km:2.497,hoehe:2265,zeit:"14:04"}, {tag:5,km:2.501,hoehe:2268,zeit:"14:09"},
+  {tag:5,km:2.506,hoehe:2268,zeit:"14:13"}, {tag:5,km:2.515,hoehe:2268,zeit:"14:14"}, {tag:5,km:2.543,hoehe:2269,zeit:"14:15"}, {tag:5,km:2.548,hoehe:2272,zeit:"14:16"},
+  {tag:5,km:2.575,hoehe:2275,zeit:"14:17"}, {tag:5,km:2.575,hoehe:2281,zeit:"14:18"}, {tag:5,km:2.575,hoehe:2288,zeit:"14:19"}, {tag:5,km:2.575,hoehe:2295,zeit:"14:20"},
+  {tag:5,km:2.578,hoehe:2301,zeit:"14:21"}, {tag:5,km:2.607,hoehe:2306,zeit:"14:22"}, {tag:5,km:2.607,hoehe:2312,zeit:"14:23"}, {tag:5,km:2.633,hoehe:2318,zeit:"14:24"},
+  {tag:5,km:2.652,hoehe:2324,zeit:"14:25"}, {tag:5,km:2.681,hoehe:2330,zeit:"14:26"}, {tag:5,km:2.699,hoehe:2334,zeit:"14:27"}, {tag:5,km:2.736,hoehe:2337,zeit:"14:28"},
+  {tag:5,km:2.751,hoehe:2340,zeit:"14:29"}, {tag:5,km:2.78,hoehe:2340,zeit:"14:30"}, {tag:5,km:2.781,hoehe:2340,zeit:"14:31"}, {tag:5,km:2.781,hoehe:2337,zeit:"14:32"},
+  {tag:5,km:2.795,hoehe:2335,zeit:"14:33"}, {tag:5,km:2.82,hoehe:2328,zeit:"14:34"}, {tag:5,km:2.845,hoehe:2323,zeit:"14:35"}, {tag:5,km:2.851,hoehe:2323,zeit:"14:36"},
+  {tag:5,km:2.923,hoehe:2325,zeit:"14:37"}, {tag:5,km:2.946,hoehe:2325,zeit:"14:38"}, {tag:5,km:2.986,hoehe:2330,zeit:"14:39"}, {tag:5,km:3.005,hoehe:2337,zeit:"14:40"},
+  {tag:5,km:3.015,hoehe:2345,zeit:"14:41"}, {tag:5,km:3.041,hoehe:2349,zeit:"14:42"}, {tag:5,km:3.041,hoehe:2349,zeit:"14:43"}, {tag:5,km:3.041,hoehe:2350,zeit:"14:44"},
+  {tag:5,km:3.07,hoehe:2354,zeit:"14:45"}, {tag:5,km:3.084,hoehe:2359,zeit:"14:46"}, {tag:5,km:3.146,hoehe:2364,zeit:"14:47"}, {tag:5,km:3.193,hoehe:2369,zeit:"14:48"},
+  {tag:5,km:3.218,hoehe:2366,zeit:"14:49"}, {tag:5,km:3.237,hoehe:2365,zeit:"14:51"}, {tag:5,km:3.276,hoehe:2364,zeit:"14:52"}, {tag:5,km:3.317,hoehe:2357,zeit:"14:53"},
+  {tag:5,km:3.338,hoehe:2353,zeit:"14:54"}, {tag:5,km:3.414,hoehe:2351,zeit:"14:55"}, {tag:5,km:3.489,hoehe:2349,zeit:"14:56"}, {tag:5,km:3.504,hoehe:2350,zeit:"14:57"},
+  {tag:5,km:3.516,hoehe:2349,zeit:"14:58"}, {tag:5,km:3.562,hoehe:2342,zeit:"14:59"}, {tag:5,km:3.579,hoehe:2333,zeit:"15:00"}, {tag:5,km:3.594,hoehe:2323,zeit:"15:01"},
+  {tag:5,km:3.618,hoehe:2313,zeit:"15:02"}, {tag:5,km:3.628,hoehe:2303,zeit:"15:03"}, {tag:5,km:3.666,hoehe:2292,zeit:"15:04"}, {tag:5,km:3.716,hoehe:2279,zeit:"15:05"},
+  {tag:5,km:3.732,hoehe:2271,zeit:"15:06"}, {tag:5,km:3.76,hoehe:2261,zeit:"15:07"}, {tag:5,km:3.788,hoehe:2248,zeit:"15:08"}, {tag:5,km:3.845,hoehe:2241,zeit:"15:09"},
+  {tag:5,km:3.879,hoehe:2243,zeit:"15:10"}, {tag:5,km:3.881,hoehe:2249,zeit:"15:11"}, {tag:5,km:3.895,hoehe:2254,zeit:"15:12"}, {tag:5,km:3.895,hoehe:2260,zeit:"15:13"},
+  {tag:5,km:3.898,hoehe:2267,zeit:"15:14"}, {tag:5,km:3.899,hoehe:2273,zeit:"15:15"}, {tag:5,km:3.901,hoehe:2278,zeit:"15:16"}, {tag:5,km:3.904,hoehe:2285,zeit:"15:17"},
+  {tag:5,km:3.904,hoehe:2293,zeit:"15:18"}, {tag:5,km:3.951,hoehe:2300,zeit:"15:19"}, {tag:5,km:3.998,hoehe:2304,zeit:"15:20"}, {tag:5,km:4.01,hoehe:2312,zeit:"15:21"},
+  {tag:5,km:4.01,hoehe:2318,zeit:"15:22"}, {tag:5,km:4.01,hoehe:2321,zeit:"15:23"}, {tag:5,km:4.011,hoehe:2319,zeit:"15:24"}, {tag:5,km:4.045,hoehe:2316,zeit:"15:25"},
+  {tag:5,km:4.076,hoehe:2315,zeit:"15:26"}, {tag:5,km:4.079,hoehe:2313,zeit:"15:27"}, {tag:5,km:4.081,hoehe:2312,zeit:"15:28"}, {tag:5,km:4.093,hoehe:2310,zeit:"15:29"},
+  {tag:5,km:4.148,hoehe:2311,zeit:"15:30"}, {tag:5,km:4.172,hoehe:2314,zeit:"15:31"}, {tag:5,km:4.244,hoehe:2318,zeit:"15:32"}, {tag:5,km:4.302,hoehe:2321,zeit:"15:33"},
+  {tag:5,km:4.369,hoehe:2320,zeit:"15:34"}, {tag:5,km:4.419,hoehe:2325,zeit:"15:35"}, {tag:5,km:4.419,hoehe:2332,zeit:"15:36"}, {tag:5,km:4.428,hoehe:2338,zeit:"15:37"},
+  {tag:5,km:4.442,hoehe:2344,zeit:"15:38"}, {tag:5,km:4.451,hoehe:2353,zeit:"15:39"}, {tag:5,km:4.454,hoehe:2360,zeit:"15:40"}, {tag:5,km:4.459,hoehe:2364,zeit:"15:41"},
+  {tag:5,km:4.479,hoehe:2364,zeit:"15:42"}, {tag:5,km:4.51,hoehe:2364,zeit:"15:43"}, {tag:5,km:4.526,hoehe:2361,zeit:"15:44"}, {tag:5,km:4.554,hoehe:2358,zeit:"15:45"},
+  {tag:5,km:4.554,hoehe:2358,zeit:"15:46"}, {tag:5,km:4.587,hoehe:2357,zeit:"15:47"}, {tag:5,km:4.612,hoehe:2352,zeit:"15:48"}, {tag:5,km:4.626,hoehe:2347,zeit:"15:49"},
+  {tag:5,km:4.65,hoehe:2340,zeit:"15:50"}, {tag:5,km:4.669,hoehe:2332,zeit:"15:51"}, {tag:5,km:4.679,hoehe:2327,zeit:"15:52"}, {tag:5,km:4.693,hoehe:2325,zeit:"15:54"},
+  {tag:5,km:4.703,hoehe:2325,zeit:"15:55"}, {tag:5,km:4.703,hoehe:2320,zeit:"15:56"}, {tag:5,km:4.703,hoehe:2323,zeit:"15:57"}, {tag:5,km:4.75,hoehe:2329,zeit:"15:58"},
+  {tag:5,km:4.788,hoehe:2332,zeit:"15:59"}, {tag:5,km:4.859,hoehe:2329,zeit:"16:00"}, {tag:5,km:4.916,hoehe:2332,zeit:"16:01"}, {tag:5,km:5.002,hoehe:2334,zeit:"16:02"},
+  {tag:5,km:5.031,hoehe:2336,zeit:"16:03"}, {tag:5,km:5.081,hoehe:2334,zeit:"16:04"}, {tag:5,km:5.155,hoehe:2331,zeit:"16:05"}, {tag:5,km:5.23,hoehe:2326,zeit:"16:06"},
+  {tag:5,km:5.238,hoehe:2319,zeit:"16:07"}, {tag:5,km:5.253,hoehe:2314,zeit:"16:08"}, {tag:5,km:5.253,hoehe:2313,zeit:"16:09"}, {tag:5,km:5.263,hoehe:2318,zeit:"16:10"},
+  {tag:5,km:5.263,hoehe:2326,zeit:"16:11"}, {tag:5,km:5.263,hoehe:2334,zeit:"16:12"}, {tag:5,km:5.263,hoehe:2338,zeit:"16:13"}, {tag:5,km:5.263,hoehe:2336,zeit:"16:15"},
+  {tag:5,km:5.263,hoehe:2337,zeit:"16:16"}, {tag:5,km:5.263,hoehe:2338,zeit:"16:19"}, {tag:5,km:5.263,hoehe:2339,zeit:"16:22"}, {tag:5,km:5.264,hoehe:2345,zeit:"16:23"},
+  {tag:5,km:5.264,hoehe:2352,zeit:"16:24"}, {tag:5,km:5.265,hoehe:2359,zeit:"16:25"}, {tag:5,km:5.265,hoehe:2366,zeit:"16:26"}, {tag:5,km:5.265,hoehe:2374,zeit:"16:27"},
+  {tag:5,km:5.265,hoehe:2379,zeit:"16:28"}, {tag:5,km:5.265,hoehe:2380,zeit:"16:29"}, {tag:5,km:5.265,hoehe:2381,zeit:"16:30"}, {tag:5,km:5.265,hoehe:2386,zeit:"16:31"},
+  {tag:5,km:5.265,hoehe:2392,zeit:"16:32"}, {tag:5,km:5.265,hoehe:2398,zeit:"16:33"}, {tag:5,km:5.265,hoehe:2405,zeit:"16:34"}, {tag:5,km:5.265,hoehe:2412,zeit:"16:35"},
+  {tag:5,km:5.265,hoehe:2418,zeit:"16:36"}, {tag:5,km:5.265,hoehe:2424,zeit:"16:37"}, {tag:5,km:5.265,hoehe:2432,zeit:"16:38"}, {tag:5,km:5.265,hoehe:2440,zeit:"16:39"},
+  {tag:5,km:5.268,hoehe:2448,zeit:"16:40"}, {tag:5,km:5.268,hoehe:2452,zeit:"16:41"}, {tag:5,km:5.268,hoehe:2459,zeit:"16:42"}, {tag:5,km:5.268,hoehe:2466,zeit:"16:43"},
+  {tag:5,km:5.268,hoehe:2472,zeit:"16:44"}, {tag:5,km:5.27,hoehe:2479,zeit:"16:45"}, {tag:5,km:5.27,hoehe:2486,zeit:"16:46"}, {tag:5,km:5.27,hoehe:2491,zeit:"16:47"},
+  {tag:5,km:5.27,hoehe:2493,zeit:"16:48"}, {tag:5,km:5.271,hoehe:2492,zeit:"16:50"}, {tag:5,km:5.271,hoehe:2497,zeit:"16:54"}, {tag:5,km:5.271,hoehe:2503,zeit:"16:55"},
+  {tag:5,km:5.271,hoehe:2511,zeit:"16:56"}, {tag:5,km:5.271,hoehe:2518,zeit:"16:57"}, {tag:5,km:5.271,hoehe:2523,zeit:"16:58"}, {tag:5,km:5.271,hoehe:2529,zeit:"16:59"},
+  {tag:5,km:5.271,hoehe:2536,zeit:"17:00"}, {tag:5,km:5.271,hoehe:2537,zeit:"17:02"}, {tag:5,km:5.271,hoehe:2538,zeit:"17:03"}, {tag:5,km:5.272,hoehe:2537,zeit:"17:04"},
+  {tag:5,km:5.272,hoehe:2538,zeit:"17:08"}, {tag:5,km:5.272,hoehe:2537,zeit:"17:13"}, {tag:5,km:5.272,hoehe:2533,zeit:"17:14"}, {tag:5,km:5.272,hoehe:2527,zeit:"17:15"},
+  {tag:5,km:5.272,hoehe:2522,zeit:"17:16"}, {tag:5,km:5.272,hoehe:2516,zeit:"17:17"}, {tag:5,km:5.272,hoehe:2505,zeit:"17:18"}, {tag:5,km:5.277,hoehe:2494,zeit:"17:19"},
+  {tag:5,km:5.288,hoehe:2485,zeit:"17:20"}, {tag:5,km:5.29,hoehe:2478,zeit:"17:21"}, {tag:5,km:5.29,hoehe:2472,zeit:"17:22"}, {tag:5,km:5.291,hoehe:2463,zeit:"17:23"},
+  {tag:5,km:5.293,hoehe:2455,zeit:"17:24"}, {tag:5,km:5.293,hoehe:2447,zeit:"17:25"}, {tag:5,km:5.295,hoehe:2439,zeit:"17:26"}, {tag:5,km:5.305,hoehe:2429,zeit:"17:27"},
+  {tag:5,km:5.308,hoehe:2420,zeit:"17:28"}, {tag:5,km:5.308,hoehe:2414,zeit:"17:29"}, {tag:5,km:5.311,hoehe:2409,zeit:"17:30"}, {tag:5,km:5.311,hoehe:2404,zeit:"17:31"},
+  {tag:5,km:5.311,hoehe:2401,zeit:"17:32"}, {tag:5,km:5.315,hoehe:2395,zeit:"17:33"}, {tag:5,km:5.32,hoehe:2383,zeit:"17:34"}, {tag:5,km:5.32,hoehe:2374,zeit:"17:35"},
+  {tag:5,km:5.32,hoehe:2368,zeit:"17:36"}, {tag:5,km:5.32,hoehe:2363,zeit:"17:37"}, {tag:5,km:5.335,hoehe:2355,zeit:"17:38"}, {tag:5,km:5.365,hoehe:2344,zeit:"17:39"},
+  {tag:5,km:5.372,hoehe:2336,zeit:"17:40"}, {tag:5,km:5.388,hoehe:2329,zeit:"17:41"}, {tag:5,km:5.39,hoehe:2324,zeit:"17:42"}, {tag:5,km:5.408,hoehe:2320,zeit:"17:43"},
+  {tag:5,km:5.411,hoehe:2316,zeit:"17:44"}, {tag:5,km:5.423,hoehe:2309,zeit:"17:45"}, {tag:5,km:5.426,hoehe:2299,zeit:"17:46"}, {tag:5,km:5.444,hoehe:2292,zeit:"17:47"},
+  {tag:5,km:5.458,hoehe:2286,zeit:"17:48"}, {tag:5,km:5.458,hoehe:2281,zeit:"17:49"}, {tag:5,km:5.458,hoehe:2280,zeit:"17:52"}, {tag:5,km:5.47,hoehe:2284,zeit:"17:53"},
+  {tag:6,km:0,hoehe:2296,zeit:"09:03"}, {tag:6,km:0,hoehe:2300,zeit:"09:05"}, {tag:6,km:0,hoehe:2308,zeit:"09:06"}, {tag:6,km:0,hoehe:2314,zeit:"09:07"},
+  {tag:6,km:0,hoehe:2319,zeit:"09:08"}, {tag:6,km:0,hoehe:2325,zeit:"09:09"}, {tag:6,km:0,hoehe:2332,zeit:"09:10"}, {tag:6,km:0.023,hoehe:2333,zeit:"09:11"},
+  {tag:6,km:0.051,hoehe:2329,zeit:"09:12"}, {tag:6,km:0.09,hoehe:2327,zeit:"09:13"}, {tag:6,km:0.133,hoehe:2324,zeit:"09:14"}, {tag:6,km:0.201,hoehe:2322,zeit:"09:15"},
+  {tag:6,km:0.277,hoehe:2319,zeit:"09:16"}, {tag:6,km:0.298,hoehe:2318,zeit:"09:17"}, {tag:6,km:0.314,hoehe:2319,zeit:"09:18"}, {tag:6,km:0.314,hoehe:2320,zeit:"09:23"},
+  {tag:6,km:0.327,hoehe:2319,zeit:"09:26"}, {tag:6,km:0.33,hoehe:2318,zeit:"09:27"}, {tag:6,km:0.332,hoehe:2321,zeit:"09:28"}, {tag:6,km:0.342,hoehe:2325,zeit:"09:29"},
+  {tag:6,km:0.342,hoehe:2327,zeit:"09:30"}, {tag:6,km:0.343,hoehe:2332,zeit:"09:31"}, {tag:6,km:0.343,hoehe:2337,zeit:"09:32"}, {tag:6,km:0.343,hoehe:2340,zeit:"09:34"},
+  {tag:6,km:0.343,hoehe:2346,zeit:"09:35"}, {tag:6,km:0.343,hoehe:2354,zeit:"09:36"}, {tag:6,km:0.345,hoehe:2362,zeit:"09:37"}, {tag:6,km:0.345,hoehe:2369,zeit:"09:38"},
+  {tag:6,km:0.345,hoehe:2373,zeit:"09:39"}, {tag:6,km:0.345,hoehe:2379,zeit:"09:40"}, {tag:6,km:0.345,hoehe:2386,zeit:"09:41"}, {tag:6,km:0.347,hoehe:2392,zeit:"09:42"},
+  {tag:6,km:0.352,hoehe:2397,zeit:"09:43"}, {tag:6,km:0.352,hoehe:2401,zeit:"09:44"}, {tag:6,km:0.352,hoehe:2405,zeit:"09:45"}, {tag:6,km:0.352,hoehe:2411,zeit:"09:46"},
+  {tag:6,km:0.365,hoehe:2415,zeit:"09:47"}, {tag:6,km:0.379,hoehe:2419,zeit:"09:48"}, {tag:6,km:0.38,hoehe:2423,zeit:"09:49"}, {tag:6,km:0.38,hoehe:2430,zeit:"09:50"},
+  {tag:6,km:0.38,hoehe:2434,zeit:"09:51"}, {tag:6,km:0.385,hoehe:2438,zeit:"09:52"}, {tag:6,km:0.399,hoehe:2443,zeit:"09:53"}, {tag:6,km:0.419,hoehe:2445,zeit:"09:54"},
+  {tag:6,km:0.428,hoehe:2440,zeit:"09:56"}, {tag:6,km:0.452,hoehe:2432,zeit:"09:57"}, {tag:6,km:0.459,hoehe:2424,zeit:"09:58"}, {tag:6,km:0.474,hoehe:2415,zeit:"09:59"},
+  {tag:6,km:0.505,hoehe:2404,zeit:"10:00"}, {tag:6,km:0.558,hoehe:2393,zeit:"10:01"}, {tag:6,km:0.585,hoehe:2384,zeit:"10:02"}, {tag:6,km:0.645,hoehe:2376,zeit:"10:03"},
+  {tag:6,km:0.715,hoehe:2369,zeit:"10:04"}, {tag:6,km:0.786,hoehe:2362,zeit:"10:05"}, {tag:6,km:0.796,hoehe:2356,zeit:"10:06"}, {tag:6,km:0.8,hoehe:2351,zeit:"10:07"},
+  {tag:6,km:0.801,hoehe:2344,zeit:"10:08"}, {tag:6,km:0.815,hoehe:2340,zeit:"10:09"}, {tag:6,km:0.835,hoehe:2334,zeit:"10:10"}, {tag:6,km:0.858,hoehe:2331,zeit:"10:11"},
+  {tag:6,km:0.883,hoehe:2333,zeit:"10:12"}, {tag:6,km:0.886,hoehe:2329,zeit:"10:13"}, {tag:6,km:0.924,hoehe:2321,zeit:"10:14"}, {tag:6,km:0.953,hoehe:2309,zeit:"10:15"},
+  {tag:6,km:1.007,hoehe:2301,zeit:"10:16"}, {tag:6,km:1.02,hoehe:2299,zeit:"10:17"}, {tag:6,km:1.023,hoehe:2300,zeit:"10:18"}, {tag:6,km:1.052,hoehe:2302,zeit:"10:19"},
+  {tag:6,km:1.072,hoehe:2307,zeit:"10:20"}, {tag:6,km:1.115,hoehe:2311,zeit:"10:21"}, {tag:6,km:1.144,hoehe:2316,zeit:"10:22"}, {tag:6,km:1.145,hoehe:2321,zeit:"10:25"},
+  {tag:6,km:1.179,hoehe:2328,zeit:"10:26"}, {tag:6,km:1.19,hoehe:2334,zeit:"10:27"}, {tag:6,km:1.19,hoehe:2340,zeit:"10:28"}, {tag:6,km:1.202,hoehe:2347,zeit:"10:29"},
+  {tag:6,km:1.21,hoehe:2352,zeit:"10:30"}, {tag:6,km:1.226,hoehe:2355,zeit:"10:31"}, {tag:6,km:1.242,hoehe:2360,zeit:"10:32"}, {tag:6,km:1.244,hoehe:2365,zeit:"10:36"},
+  {tag:6,km:1.245,hoehe:2371,zeit:"10:37"}, {tag:6,km:1.245,hoehe:2376,zeit:"10:38"}, {tag:6,km:1.245,hoehe:2378,zeit:"10:39"}, {tag:6,km:1.245,hoehe:2380,zeit:"10:40"},
+  {tag:6,km:1.256,hoehe:2382,zeit:"10:41"}, {tag:6,km:1.283,hoehe:2386,zeit:"10:42"}, {tag:6,km:1.284,hoehe:2392,zeit:"10:43"}, {tag:6,km:1.285,hoehe:2398,zeit:"10:44"},
+  {tag:6,km:1.285,hoehe:2403,zeit:"10:45"}, {tag:6,km:1.286,hoehe:2407,zeit:"10:46"}, {tag:6,km:1.286,hoehe:2412,zeit:"10:48"}, {tag:6,km:1.286,hoehe:2417,zeit:"10:49"},
+  {tag:6,km:1.286,hoehe:2420,zeit:"10:50"}, {tag:6,km:1.286,hoehe:2422,zeit:"10:51"}, {tag:6,km:1.286,hoehe:2423,zeit:"10:53"}, {tag:6,km:1.295,hoehe:2425,zeit:"10:54"},
+  {tag:6,km:1.305,hoehe:2428,zeit:"10:55"}, {tag:6,km:1.353,hoehe:2425,zeit:"10:56"}, {tag:6,km:1.397,hoehe:2417,zeit:"10:57"}, {tag:6,km:1.447,hoehe:2405,zeit:"10:58"},
+  {tag:6,km:1.48,hoehe:2395,zeit:"10:59"}, {tag:6,km:1.522,hoehe:2387,zeit:"11:00"}, {tag:6,km:1.578,hoehe:2377,zeit:"11:01"}, {tag:6,km:1.616,hoehe:2365,zeit:"11:02"},
+  {tag:6,km:1.631,hoehe:2355,zeit:"11:03"}, {tag:6,km:1.634,hoehe:2345,zeit:"11:04"}, {tag:6,km:1.643,hoehe:2334,zeit:"11:05"}, {tag:6,km:1.677,hoehe:2323,zeit:"11:06"},
+  {tag:6,km:1.681,hoehe:2318,zeit:"11:07"}, {tag:6,km:1.721,hoehe:2317,zeit:"11:10"}, {tag:6,km:1.744,hoehe:2323,zeit:"11:11"}, {tag:6,km:1.746,hoehe:2330,zeit:"11:12"},
+  {tag:6,km:1.757,hoehe:2335,zeit:"11:13"}, {tag:6,km:1.817,hoehe:2341,zeit:"11:14"}, {tag:6,km:1.844,hoehe:2346,zeit:"11:15"}, {tag:6,km:1.847,hoehe:2350,zeit:"11:16"},
+  {tag:6,km:1.866,hoehe:2356,zeit:"11:17"}, {tag:6,km:1.873,hoehe:2362,zeit:"11:18"}, {tag:6,km:1.873,hoehe:2367,zeit:"11:19"}, {tag:6,km:1.874,hoehe:2372,zeit:"11:20"},
+  {tag:6,km:1.882,hoehe:2378,zeit:"11:21"}, {tag:6,km:1.935,hoehe:2383,zeit:"11:22"}, {tag:6,km:1.99,hoehe:2388,zeit:"11:23"}, {tag:6,km:2.011,hoehe:2392,zeit:"11:24"},
+  {tag:6,km:2.011,hoehe:2399,zeit:"11:25"}, {tag:6,km:2.051,hoehe:2405,zeit:"11:26"}, {tag:6,km:2.082,hoehe:2409,zeit:"11:27"}, {tag:6,km:2.106,hoehe:2406,zeit:"11:29"},
+  {tag:6,km:2.107,hoehe:2403,zeit:"11:30"}, {tag:6,km:2.107,hoehe:2402,zeit:"11:31"}, {tag:6,km:2.113,hoehe:2401,zeit:"11:33"}, {tag:6,km:2.113,hoehe:2400,zeit:"11:49"},
+  {tag:6,km:2.113,hoehe:2399,zeit:"11:59"}, {tag:6,km:2.113,hoehe:2400,zeit:"12:01"}, {tag:6,km:2.113,hoehe:2399,zeit:"12:09"}, {tag:6,km:2.113,hoehe:2398,zeit:"12:12"},
+  {tag:6,km:2.113,hoehe:2399,zeit:"12:14"}, {tag:6,km:2.113,hoehe:2400,zeit:"12:16"}, {tag:6,km:2.113,hoehe:2401,zeit:"12:19"}, {tag:6,km:2.114,hoehe:2401,zeit:"12:21"},
+  {tag:6,km:2.118,hoehe:2394,zeit:"12:22"}, {tag:6,km:2.124,hoehe:2383,zeit:"12:23"}, {tag:6,km:2.126,hoehe:2373,zeit:"12:24"}, {tag:6,km:2.126,hoehe:2364,zeit:"12:25"},
+  {tag:6,km:2.126,hoehe:2356,zeit:"12:26"}, {tag:6,km:2.126,hoehe:2346,zeit:"12:27"}, {tag:6,km:2.127,hoehe:2336,zeit:"12:28"}, {tag:6,km:2.135,hoehe:2326,zeit:"12:29"},
+  {tag:6,km:2.135,hoehe:2315,zeit:"12:30"}, {tag:6,km:2.135,hoehe:2304,zeit:"12:31"}, {tag:6,km:2.139,hoehe:2293,zeit:"12:32"}, {tag:6,km:2.139,hoehe:2281,zeit:"12:33"},
+  {tag:6,km:2.149,hoehe:2272,zeit:"12:34"}, {tag:6,km:2.149,hoehe:2260,zeit:"12:35"}, {tag:6,km:2.159,hoehe:2248,zeit:"12:36"}, {tag:6,km:2.182,hoehe:2236,zeit:"12:37"},
+  {tag:6,km:2.248,hoehe:2225,zeit:"12:38"}, {tag:6,km:2.307,hoehe:2218,zeit:"12:39"}, {tag:6,km:2.308,hoehe:2218,zeit:"12:40"}, {tag:6,km:2.308,hoehe:2222,zeit:"12:41"},
+  {tag:6,km:2.308,hoehe:2229,zeit:"12:42"}, {tag:6,km:2.308,hoehe:2234,zeit:"12:43"}, {tag:6,km:2.309,hoehe:2239,zeit:"12:44"}, {tag:6,km:2.309,hoehe:2245,zeit:"12:45"},
+  {tag:6,km:2.309,hoehe:2251,zeit:"12:46"}, {tag:6,km:2.309,hoehe:2257,zeit:"12:47"}, {tag:6,km:2.309,hoehe:2263,zeit:"12:48"}, {tag:6,km:2.312,hoehe:2269,zeit:"12:49"},
+  {tag:6,km:2.312,hoehe:2274,zeit:"12:50"}, {tag:6,km:2.316,hoehe:2278,zeit:"12:51"}, {tag:6,km:2.347,hoehe:2282,zeit:"12:52"}, {tag:6,km:2.354,hoehe:2286,zeit:"12:53"},
+  {tag:6,km:2.372,hoehe:2286,zeit:"12:54"}, {tag:6,km:2.395,hoehe:2284,zeit:"12:55"}, {tag:6,km:2.413,hoehe:2282,zeit:"12:56"}, {tag:6,km:2.42,hoehe:2279,zeit:"12:57"},
+  {tag:6,km:2.433,hoehe:2276,zeit:"12:58"}, {tag:6,km:2.44,hoehe:2270,zeit:"12:59"}, {tag:6,km:2.472,hoehe:2261,zeit:"13:00"}, {tag:6,km:2.49,hoehe:2250,zeit:"13:01"},
+  {tag:6,km:2.49,hoehe:2239,zeit:"13:02"}, {tag:6,km:2.492,hoehe:2228,zeit:"13:03"}, {tag:6,km:2.536,hoehe:2217,zeit:"13:04"}, {tag:6,km:2.563,hoehe:2207,zeit:"13:05"},
+  {tag:6,km:2.567,hoehe:2203,zeit:"13:06"}, {tag:6,km:2.568,hoehe:2200,zeit:"13:07"}, {tag:6,km:2.573,hoehe:2192,zeit:"13:08"}, {tag:6,km:2.573,hoehe:2185,zeit:"13:09"},
+  {tag:6,km:2.573,hoehe:2177,zeit:"13:10"}, {tag:6,km:2.573,hoehe:2169,zeit:"13:11"}, {tag:6,km:2.573,hoehe:2159,zeit:"13:12"}, {tag:6,km:2.573,hoehe:2150,zeit:"13:13"},
+  {tag:6,km:2.585,hoehe:2141,zeit:"13:14"}, {tag:6,km:2.593,hoehe:2134,zeit:"13:15"}, {tag:6,km:2.658,hoehe:2125,zeit:"13:16"}, {tag:6,km:2.685,hoehe:2112,zeit:"13:17"},
+  {tag:6,km:2.686,hoehe:2105,zeit:"13:18"}, {tag:6,km:2.702,hoehe:2098,zeit:"13:22"}, {tag:6,km:2.728,hoehe:2087,zeit:"13:23"}, {tag:6,km:2.778,hoehe:2077,zeit:"13:24"},
+  {tag:6,km:2.803,hoehe:2066,zeit:"13:25"}, {tag:6,km:2.845,hoehe:2055,zeit:"13:26"}, {tag:6,km:2.892,hoehe:2044,zeit:"13:27"}, {tag:6,km:2.922,hoehe:2034,zeit:"13:28"},
+  {tag:6,km:2.998,hoehe:2023,zeit:"13:29"}, {tag:6,km:3.064,hoehe:2012,zeit:"13:30"}, {tag:6,km:3.071,hoehe:2002,zeit:"13:31"}, {tag:6,km:3.071,hoehe:1998,zeit:"13:32"},
+  {tag:6,km:3.095,hoehe:1992,zeit:"13:34"}, {tag:6,km:3.14,hoehe:1981,zeit:"13:35"}, {tag:6,km:3.161,hoehe:1972,zeit:"13:36"}, {tag:6,km:3.233,hoehe:1964,zeit:"13:37"},
+  {tag:6,km:3.237,hoehe:1959,zeit:"13:38"}, {tag:6,km:3.237,hoehe:1958,zeit:"13:40"}, {tag:6,km:3.26,hoehe:1955,zeit:"13:43"}, {tag:6,km:3.26,hoehe:1955,zeit:"13:45"},
+  {tag:6,km:3.262,hoehe:1958,zeit:"13:46"}, {tag:6,km:3.27,hoehe:1957,zeit:"13:48"}, {tag:6,km:3.27,hoehe:1956,zeit:"13:50"}, {tag:6,km:3.27,hoehe:1955,zeit:"14:00"},
+  {tag:6,km:3.27,hoehe:1954,zeit:"14:16"}, {tag:6,km:3.276,hoehe:1953,zeit:"14:21"}, {tag:6,km:3.276,hoehe:1946,zeit:"14:22"}, {tag:6,km:3.276,hoehe:1939,zeit:"14:23"},
+  {tag:6,km:3.277,hoehe:1930,zeit:"14:24"}, {tag:6,km:3.285,hoehe:1918,zeit:"14:25"}, {tag:6,km:3.287,hoehe:1907,zeit:"14:26"}, {tag:6,km:3.363,hoehe:1896,zeit:"14:27"},
+  {tag:6,km:3.398,hoehe:1887,zeit:"14:28"}, {tag:6,km:3.407,hoehe:1878,zeit:"14:29"}, {tag:6,km:3.407,hoehe:1869,zeit:"14:30"}, {tag:6,km:3.41,hoehe:1861,zeit:"14:31"},
+  {tag:6,km:3.446,hoehe:1854,zeit:"14:32"}, {tag:6,km:3.463,hoehe:1843,zeit:"14:33"}, {tag:6,km:3.475,hoehe:1835,zeit:"14:34"}, {tag:6,km:3.495,hoehe:1828,zeit:"14:35"},
+  {tag:6,km:3.5,hoehe:1821,zeit:"14:36"}, {tag:6,km:3.509,hoehe:1811,zeit:"14:37"}, {tag:6,km:3.531,hoehe:1801,zeit:"14:38"}, {tag:6,km:3.578,hoehe:1790,zeit:"14:39"},
+  {tag:6,km:3.626,hoehe:1780,zeit:"14:40"}, {tag:6,km:3.655,hoehe:1770,zeit:"14:41"}, {tag:6,km:3.66,hoehe:1763,zeit:"14:42"}, {tag:6,km:3.725,hoehe:1753,zeit:"14:43"},
+  {tag:6,km:3.799,hoehe:1743,zeit:"14:44"}, {tag:6,km:3.804,hoehe:1734,zeit:"14:45"}, {tag:6,km:3.805,hoehe:1726,zeit:"14:46"}, {tag:6,km:3.81,hoehe:1716,zeit:"14:47"},
+  {tag:6,km:3.811,hoehe:1705,zeit:"14:48"}, {tag:6,km:3.811,hoehe:1696,zeit:"14:49"}, {tag:6,km:3.812,hoehe:1688,zeit:"14:50"}, {tag:6,km:3.815,hoehe:1680,zeit:"14:51"},
+  {tag:6,km:3.815,hoehe:1670,zeit:"14:52"}, {tag:6,km:3.833,hoehe:1662,zeit:"14:53"}, {tag:6,km:3.834,hoehe:1655,zeit:"14:54"}, {tag:6,km:3.835,hoehe:1645,zeit:"14:55"},
+  {tag:6,km:3.835,hoehe:1637,zeit:"14:56"}, {tag:6,km:3.836,hoehe:1628,zeit:"14:57"}, {tag:6,km:3.838,hoehe:1618,zeit:"14:58"}, {tag:6,km:3.844,hoehe:1608,zeit:"14:59"},
+  {tag:6,km:3.844,hoehe:1597,zeit:"15:00"}, {tag:6,km:3.887,hoehe:1586,zeit:"15:01"}, {tag:6,km:3.895,hoehe:1575,zeit:"15:02"}, {tag:6,km:3.895,hoehe:1568,zeit:"15:03"},
+  {tag:6,km:3.895,hoehe:1565,zeit:"15:05"}, {tag:6,km:3.902,hoehe:1558,zeit:"15:08"}, {tag:6,km:3.903,hoehe:1547,zeit:"15:09"}, {tag:6,km:3.903,hoehe:1536,zeit:"15:10"},
+  {tag:6,km:3.91,hoehe:1526,zeit:"15:11"}, {tag:6,km:3.911,hoehe:1520,zeit:"15:12"}, {tag:6,km:3.953,hoehe:1514,zeit:"15:13"}, {tag:6,km:3.983,hoehe:1510,zeit:"15:14"},
+  {tag:6,km:4.014,hoehe:1507,zeit:"15:15"}, {tag:6,km:4.069,hoehe:1501,zeit:"15:16"}, {tag:6,km:4.087,hoehe:1493,zeit:"15:17"}, {tag:6,km:4.124,hoehe:1484,zeit:"15:18"},
+  {tag:6,km:4.169,hoehe:1474,zeit:"15:19"}, {tag:6,km:4.19,hoehe:1467,zeit:"15:20"}, {tag:6,km:4.235,hoehe:1463,zeit:"15:21"}, {tag:6,km:4.238,hoehe:1458,zeit:"15:22"},
+  {tag:6,km:4.272,hoehe:1452,zeit:"15:23"}, {tag:6,km:4.286,hoehe:1445,zeit:"15:24"}, {tag:6,km:4.304,hoehe:1434,zeit:"15:25"}, {tag:6,km:4.373,hoehe:1424,zeit:"15:26"},
+  {tag:6,km:4.432,hoehe:1414,zeit:"15:27"}, {tag:6,km:4.462,hoehe:1406,zeit:"15:28"}, {tag:6,km:4.482,hoehe:1398,zeit:"15:29"}, {tag:6,km:4.486,hoehe:1393,zeit:"15:30"},
+  {tag:6,km:4.487,hoehe:1391,zeit:"15:31"}, {tag:6,km:4.512,hoehe:1390,zeit:"15:32"}, {tag:6,km:4.52,hoehe:1391,zeit:"15:33"}, {tag:7,km:0,hoehe:1370,zeit:"08:57"},
+  {tag:7,km:0.041,hoehe:1368,zeit:"08:58"}, {tag:7,km:0.086,hoehe:1364,zeit:"08:59"}, {tag:7,km:0.101,hoehe:1354,zeit:"09:00"}, {tag:7,km:0.112,hoehe:1343,zeit:"09:01"},
+  {tag:7,km:0.165,hoehe:1333,zeit:"09:02"}, {tag:7,km:0.215,hoehe:1323,zeit:"09:03"}, {tag:7,km:0.271,hoehe:1314,zeit:"09:04"}, {tag:7,km:0.359,hoehe:1306,zeit:"09:05"},
+  {tag:7,km:0.406,hoehe:1298,zeit:"09:06"}, {tag:7,km:0.481,hoehe:1287,zeit:"09:07"}, {tag:7,km:0.507,hoehe:1277,zeit:"09:08"}, {tag:7,km:0.595,hoehe:1270,zeit:"09:09"},
+  {tag:7,km:0.677,hoehe:1261,zeit:"09:10"}, {tag:7,km:0.758,hoehe:1251,zeit:"09:11"}, {tag:7,km:0.809,hoehe:1242,zeit:"09:12"}, {tag:7,km:0.903,hoehe:1232,zeit:"09:13"},
+  {tag:7,km:0.978,hoehe:1224,zeit:"09:14"}, {tag:7,km:1.035,hoehe:1215,zeit:"09:15"}, {tag:7,km:1.05,hoehe:1207,zeit:"09:16"}, {tag:7,km:1.126,hoehe:1198,zeit:"09:17"},
+  {tag:7,km:1.192,hoehe:1188,zeit:"09:18"}, {tag:7,km:1.261,hoehe:1180,zeit:"09:19"}, {tag:7,km:1.297,hoehe:1172,zeit:"09:20"}, {tag:7,km:1.302,hoehe:1168,zeit:"09:22"},
+  {tag:7,km:1.366,hoehe:1164,zeit:"09:23"}, {tag:7,km:1.418,hoehe:1157,zeit:"09:24"}, {tag:7,km:1.481,hoehe:1150,zeit:"09:25"}, {tag:7,km:1.56,hoehe:1141,zeit:"09:26"},
+  {tag:7,km:1.645,hoehe:1132,zeit:"09:27"}, {tag:7,km:1.664,hoehe:1127,zeit:"09:28"}, {tag:7,km:1.696,hoehe:1124,zeit:"09:29"}, {tag:7,km:1.768,hoehe:1119,zeit:"09:30"},
+  {tag:7,km:1.78,hoehe:1110,zeit:"09:31"}, {tag:7,km:1.83,hoehe:1100,zeit:"09:32"}, {tag:7,km:1.871,hoehe:1090,zeit:"09:33"}, {tag:7,km:1.879,hoehe:1082,zeit:"09:34"},
+  {tag:7,km:1.92,hoehe:1075,zeit:"09:35"}, {tag:7,km:1.998,hoehe:1067,zeit:"09:36"}, {tag:7,km:2.079,hoehe:1059,zeit:"09:37"}, {tag:7,km:2.117,hoehe:1053,zeit:"09:38"},
+  {tag:7,km:2.182,hoehe:1046,zeit:"09:39"}, {tag:7,km:2.2,hoehe:1039,zeit:"09:40"}, {tag:7,km:2.245,hoehe:1032,zeit:"09:41"}, {tag:7,km:2.282,hoehe:1023,zeit:"09:42"},
+  {tag:7,km:2.313,hoehe:1014,zeit:"09:43"}, {tag:7,km:2.398,hoehe:1009,zeit:"09:44"}, {tag:7,km:2.479,hoehe:1000,zeit:"09:45"}, {tag:7,km:2.562,hoehe:991,zeit:"09:46"},
+  {tag:7,km:2.633,hoehe:982,zeit:"09:47"}, {tag:7,km:2.661,hoehe:975,zeit:"09:48"}, {tag:7,km:2.719,hoehe:969,zeit:"09:49"}, {tag:7,km:2.798,hoehe:961,zeit:"09:50"},
+  {tag:7,km:2.872,hoehe:954,zeit:"09:51"}, {tag:7,km:2.948,hoehe:950,zeit:"09:52"}, {tag:7,km:3.039,hoehe:944,zeit:"09:53"}, {tag:7,km:3.121,hoehe:938,zeit:"09:54"},
+  {tag:7,km:3.19,hoehe:933,zeit:"09:55"}, {tag:7,km:3.278,hoehe:929,zeit:"09:56"}, {tag:7,km:3.361,hoehe:924,zeit:"09:57"}, {tag:7,km:3.448,hoehe:917,zeit:"09:58"},
+  {tag:7,km:3.518,hoehe:912,zeit:"09:59"}, {tag:7,km:3.599,hoehe:906,zeit:"10:00"}, {tag:7,km:3.677,hoehe:900,zeit:"10:01"}, {tag:7,km:3.752,hoehe:896,zeit:"10:02"},
+  {tag:7,km:3.815,hoehe:893,zeit:"10:03"}, {tag:7,km:3.834,hoehe:890,zeit:"10:04"}, {tag:7,km:3.874,hoehe:887,zeit:"10:05"}, {tag:7,km:3.922,hoehe:883,zeit:"10:06"},
+  {tag:7,km:3.966,hoehe:877,zeit:"10:07"}, {tag:7,km:4.004,hoehe:871,zeit:"10:08"}, {tag:7,km:4.072,hoehe:866,zeit:"10:09"}, {tag:7,km:4.094,hoehe:862,zeit:"10:10"},
+  {tag:7,km:4.112,hoehe:858,zeit:"10:11"}, {tag:7,km:4.181,hoehe:853,zeit:"10:12"}, {tag:7,km:4.254,hoehe:847,zeit:"10:13"}, {tag:7,km:4.324,hoehe:844,zeit:"10:14"},
+  {tag:7,km:4.381,hoehe:839,zeit:"10:15"}, {tag:7,km:4.462,hoehe:836,zeit:"10:16"}, {tag:7,km:4.553,hoehe:833,zeit:"10:17"}, {tag:7,km:4.633,hoehe:827,zeit:"10:18"},
+  {tag:7,km:4.701,hoehe:822,zeit:"10:19"}, {tag:7,km:4.779,hoehe:818,zeit:"10:20"}, {tag:7,km:4.868,hoehe:814,zeit:"10:21"}, {tag:7,km:4.898,hoehe:812,zeit:"10:22"},
+  {tag:7,km:4.945,hoehe:809,zeit:"10:34"}, {tag:7,km:4.982,hoehe:806,zeit:"10:35"}, {tag:7,km:5.003,hoehe:803,zeit:"10:36"}, {tag:7,km:5.037,hoehe:800,zeit:"10:37"},
+  {tag:7,km:5.113,hoehe:796,zeit:"10:38"}, {tag:7,km:5.2,hoehe:793,zeit:"10:39"}, {tag:7,km:5.271,hoehe:789,zeit:"10:40"}, {tag:7,km:5.338,hoehe:784,zeit:"10:41"},
+  {tag:7,km:5.425,hoehe:780,zeit:"10:42"}, {tag:7,km:5.491,hoehe:777,zeit:"10:43"}, {tag:7,km:5.574,hoehe:774,zeit:"10:44"}, {tag:7,km:5.648,hoehe:772,zeit:"10:45"},
+  {tag:7,km:5.736,hoehe:768,zeit:"10:46"}, {tag:7,km:5.811,hoehe:765,zeit:"10:47"}, {tag:7,km:5.832,hoehe:762,zeit:"10:48"}, {tag:7,km:5.854,hoehe:759,zeit:"10:49"},
+  {tag:7,km:5.944,hoehe:756,zeit:"10:50"}, {tag:7,km:6.014,hoehe:753,zeit:"10:51"}, {tag:7,km:6.066,hoehe:751,zeit:"10:52"}, {tag:7,km:6.119,hoehe:749,zeit:"10:53"},
+  {tag:7,km:6.182,hoehe:745,zeit:"10:54"}, {tag:7,km:6.259,hoehe:743,zeit:"10:55"}, {tag:7,km:6.335,hoehe:740,zeit:"10:56"}, {tag:7,km:6.395,hoehe:738,zeit:"10:57"},
+  {tag:7,km:6.459,hoehe:736,zeit:"10:58"}, {tag:7,km:6.549,hoehe:733,zeit:"10:59"}, {tag:7,km:6.618,hoehe:731,zeit:"11:00"}, {tag:7,km:6.702,hoehe:727,zeit:"11:01"},
+  {tag:7,km:6.743,hoehe:726,zeit:"11:02"}, {tag:7,km:6.764,hoehe:726,zeit:"11:03"}, {tag:7,km:6.818,hoehe:727,zeit:"11:04"}, {tag:7,km:6.859,hoehe:728,zeit:"11:05"},
+  {tag:7,km:6.882,hoehe:728,zeit:"11:06"}, {tag:7,km:6.882,hoehe:728,zeit:"11:16"}
+];
+
+/* Beschriftete Orte. Position = Tag + Uhrzeit auf der Höhenkurve; hoehe = angezeigter (bekannter) Wert, ohne Angabe die Höhe der Kurve;
+   pos: "o" über, "u" unter der Kurve, "auto" = am Anfang/Ende des Tages je nach Verlauf. */
+const orteDaten = [
+  { tag: 1, zeit: "09:25", name: "Sebeșu de Sus", pos: "auto" },
+  { tag: 1, zeit: "12:49", name: "Cabana Suru", hoehe: 1450, pos: "auto" },
+  { tag: 2, zeit: "14:20", name: "Lacul Avrig", hoehe: 2011, pos: "auto" },
+  { tag: 3, zeit: "11:30", name: "Scara", hoehe: 2306, pos: "o" },
+  { tag: 3, zeit: "14:07", name: "Șerbota", hoehe: 2331, pos: "o" },
+  { tag: 4, zeit: "11:20", name: "Negoiu", hoehe: 2535, pos: "o" },
+  { tag: 4, zeit: "13:39", name: "Lacul Călțun", hoehe: 2145, pos: "u" },
+  { tag: 4, zeit: "14:39", name: "Lăițel", hoehe: 2391, pos: "o" },
+  { tag: 4, zeit: "16:38", name: "Paltinu", hoehe: 2399, pos: "o" },
+  { tag: 4, zeit: "17:46", name: "Vârful Iezerul Caprei", hoehe: 2417, pos: "o" },
+  { tag: 4, zeit: "18:26", name: "Lacul Capra", hoehe: 2230, pos: "auto" },
+  { tag: 5, zeit: "17:03", name: "Viștea Mare", hoehe: 2524, pos: "o" },
+  { tag: 6, zeit: "15:33", name: "Cabana Valea Sambetei", hoehe: 1401, pos: "auto" },
+  { tag: 7, zeit: "11:16", name: "Sâmbăta de Sus", pos: "auto" }
+];
+
+/* Rucksackgewichte in kg, null = nicht gemessen. */
+const gewichtDaten = [
+  { tag: 1, O_M: 22.8, O_A: 23.4, R_M: 22.4, R_A: 23.2 },
+  { tag: 2, O_M: 20.4, O_A: 20.5, R_M: 20.4, R_A: 21.1 },
+  { tag: 3, O_M: 17.5, O_A: 20.0, R_M: 17.5, R_A: 20.0 },
+  { tag: 4, O_M: 17.7, O_A: 20.7, R_M: 18.0, R_A: 21.5 },
+  { tag: 5, O_M: 18.4, O_A: null, R_M: 18.0, R_A: null },
+  { tag: 6, O_M: 18.8, O_A: 17.5, R_M: 19.2, R_A: 19.0 },
+  { tag: 7, O_M: 16.2, O_A: null, R_M: 18.0, R_A: null }
+];
+
+/* Fotos werden aus fotos.json geladen (Felder: id, tag, zeit, thumbUrl, fullUrl, beschreibung). */
+let fotoDaten = [];
+
+/* =====================================================================
+   HILFSFUNKTIONEN
+   ===================================================================== */
+
+const SVGNS = "http://www.w3.org/2000/svg";
+const $ = (id) => document.getElementById(id);
+function el(name, attrs, eltern, text) {
+  const e = document.createElementNS(SVGNS, name);
+  if (attrs) for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text != null) e.textContent = text;
+  if (eltern) eltern.appendChild(e);
+  return e;
+}
+function html(name, attrs, eltern, text) {
+  const e = document.createElement(name);
+  if (attrs) for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text != null) e.textContent = text;
+  if (eltern) eltern.appendChild(e);
+  return e;
+}
+const pad2 = (n) => (n < 10 ? "0" : "") + n;
+function zahl(v, dez) { return Number(v).toLocaleString("de-DE", { minimumFractionDigits: dez, maximumFractionDigits: dez }); }
+function zuMinuten(z) { const t = String(z).split(":"); return Number(t[0]) * 60 + Number(t[1]); }
+function minutenText(m) { m = Math.round(m); return pad2(Math.floor(m / 60) % 24) + ":" + pad2(m % 60); }
+function datumVon(tag) {
+  const d = new Date(START_DATUM.jahr, START_DATUM.monat - 1, START_DATUM.tag + tag - 1);
+  return pad2(d.getDate()) + "." + pad2(d.getMonth() + 1) + "." + d.getFullYear();
+}
+const tagLabel = (tag) => "Tag " + tag + ", " + datumVon(tag);
+const glatt = (t) => t * t * (3 - 2 * t);           // sanfter Übergang 0..1
+
+/* Interpolation innerhalb eines Tages (Punkte nach Zeit sortiert, km nicht abnehmend) */
+function nachU(pts, u) {      // u = Achsenwert (Minuten oder km, je nach X_ACHSE)
+  if (u <= pts[0].u) return { km: pts[0].km, hoehe: pts[0].hoehe, m: pts[0].m };
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    if (u <= b.u) {
+      const f = b.u === a.u ? 0 : (u - a.u) / (b.u - a.u);
+      return { km: a.km + f * (b.km - a.km), hoehe: a.hoehe + f * (b.hoehe - a.hoehe), m: a.m + f * (b.m - a.m) };
+    }
+  }
+  const l = pts[pts.length - 1];
+  return { km: l.km, hoehe: l.hoehe, m: l.m };
+}
+function nachZeit(pts, m) {
+  if (m <= pts[0].m) return { km: pts[0].km, hoehe: pts[0].hoehe };
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    if (m <= b.m) {
+      const f = b.m === a.m ? 0 : (m - a.m) / (b.m - a.m);
+      return { km: a.km + f * (b.km - a.km), hoehe: a.hoehe + f * (b.hoehe - a.hoehe) };
+    }
+  }
+  const l = pts[pts.length - 1];
+  return { km: l.km, hoehe: l.hoehe };
+}
+
+/* =====================================================================
+   GEOMETRIE UND ZEICHNEN
+   ===================================================================== */
+
+let G = null;            // aktuelle Geometrie
+let cursorX = null;      // aktuelle Position des Striches (px im Diagramm)
+let cursorH = null;      // Höhe am Strich (m)
+let letzterModus = null;
+
+const svg = $("svg"), strip = $("strip"), scroller = $("scroller"), info = $("info");
+
+function baueGeometrie() {
+  const mobil = window.matchMedia("(max-width: 768px)").matches;
+  const S = mobil ? 40 : 44;
+  const tage = [];
+  const vw = Math.max(320, scroller.clientWidth || window.innerWidth);
+  const zeitAchse = X_ACHSE === "zeit";
+  const punkt = (p) => { const m = zuMinuten(p.zeit); return { km: p.km, hoehe: p.hoehe, m, u: zeitAchse ? m : p.km, luecke: !!p.luecke }; };
+  let x = LUECKE, kmSumme = 0;
+  for (let t = 1; t <= TAGE_ANZAHL; t++) {
+    const pts = hoehenDaten.filter((p) => p.tag === t).map(punkt);
+        const km = pts.length ? pts[pts.length - 1].km : 0;
+    const u0 = pts.length ? pts[0].u : 0, u1 = pts.length ? pts[pts.length - 1].u : 1;
+    const span = (u1 - u0) || 1;
+    const natuerlich = span * (zeitAchse ? PX_PRO_STUNDE / 60 : PX_PRO_KM);
+    const w = Math.max(natuerlich, vw - LUECKE);          // mind. eine Bildschirmbreite je Tag
+    tage.push({ tag: t, pts, km, u0, u1, x0: x, x1: x + w, pxU: w / span, kmStart: kmSumme });
+    x += w + LUECKE;
+    kmSumme += km;
+  }
+  const breite = x;
+  const alleH = hoehenDaten.map((p) => p.hoehe);
+  const hMin = Math.min.apply(null, alleH), hMax = Math.max.apply(null, alleH);
+
+  /* Fotos positionieren: Fotos mit gleichem Zeitstempel (Tag + Uhrzeit) bilden einen Stapel = ein Vorschaubild mit Anzahl */
+  const stapel = {};
+  fotoDaten.forEach((f) => { const k = f.tag + "|" + f.zeit; (stapel[k] = stapel[k] || []).push(f); });
+  const fotos = Object.keys(stapel).map((k) => {
+    const liste = stapel[k], f = liste[0];
+    const t = tage[f.tag - 1];
+    if (!t || !t.pts.length) return null;
+    const mm = zuMinuten(f.zeit);
+    const p = nachZeit(t.pts, mm);
+    const u = zeitAchse ? Math.max(t.u0, Math.min(t.u1, mm)) : p.km;
+    return { f, liste, x: t.x0 + (u - t.u0) * t.pxU, hoehe: p.hoehe };
+  }).filter(Boolean).sort((a, b) => a.x - b.x);
+  /* Orte (Beschriftungen) positionieren */
+  const orte = orteDaten.map((o) => {
+    const t = tage[o.tag - 1];
+    if (!t || !t.pts.length) return null;
+    const mm = zuMinuten(o.zeit), p = nachZeit(t.pts, mm);
+    const u = zeitAchse ? Math.max(t.u0, Math.min(t.u1, mm)) : p.km;
+    return { o, t, mm, x: t.x0 + (u - t.u0) * t.pxU, hoehe: p.hoehe };
+  }).filter(Boolean);
+  const ende = [];
+  fotos.forEach((a) => {
+    let l = 0;
+    while (l < 3 && ende[l] !== undefined && a.x - S / 2 < ende[l] + 4) l++;
+    if (l >= 3) { l = ende.indexOf(Math.min.apply(null, ende)); }
+    ende[l] = a.x + S / 2;
+    a.lane = l;
+  });
+  const lanes = fotos.length ? Math.max.apply(null, fotos.map((a) => a.lane)) + 1 : 0;
+  const labelH = 34;                                   // Zeile mit dem (mitlaufenden) Tageslabel
+  const PH = labelH + 8 + lanes * (S + 8);              // Unterkante des Fotobands
+  const vh = window.innerHeight || 800;
+  const elevH = mobil ? Math.max(300, Math.round(vh * 0.66)) : Math.max(240, Math.min(480, Math.round(vh * 0.42)));
+  const weightH = mobil ? 90 : 110;
+  const elevTop = PH + 34;                              // Platz für Gipfelbeschriftungen über der Linie
+  const weightTop = elevTop + elevH + 34;
+  const H = weightTop + weightH + 20;
+
+  const alleG = [];
+  gewichtDaten.forEach((d) => ["O_M", "O_A", "R_M", "R_A"].forEach((k) => { if (typeof d[k] === "number") alleG.push(d[k]); }));
+  const gMin = Math.min.apply(null, alleG), gMax = Math.max.apply(null, alleG);
+
+  G = {
+    mobil, S, tage, breite, hMin, hMax, fotos, orte, PH, labelH, elevH, weightH, elevTop, weightTop, H, gMin, gMax,
+    lo: hMin, hi: hMax, padU: 26,
+    Y: (h) => elevTop + (elevH - G.padU) * (1 - (h - G.lo) / ((G.hi - G.lo) || 1)),
+    YG: (v) => weightTop + weightH - ((v - gMin) / (gMax - gMin || 1)) * weightH
+  };
+  G.serien = {
+    O: gewichtSerie("O"),
+    R: gewichtSerie("R")
+  };
+}
+
+/* Messpunkte eines Rucksacks: morgens am Tagesanfang, abends am Tagesende */
+function gewichtSerie(k) {
+  const pts = [];
+  G.tage.forEach((t) => {
+    const d = gewichtDaten.find((g) => g.tag === t.tag);
+    if (!d || !t.pts.length) return;
+    if (typeof d[k + "_M"] === "number") pts.push({ x: t.x0, v: d[k + "_M"], tag: t.tag, teil: "M" });
+    if (typeof d[k + "_A"] === "number") pts.push({ x: t.x1, v: d[k + "_A"], tag: t.tag, teil: "A" });
+  });
+  return pts;
+}
+function gewichtBei(serie, x) {
+  for (let i = 0; i < serie.length - 1; i++) {
+    const a = serie[i], b = serie[i + 1];
+    if (x >= a.x && x <= b.x) return a.v + glatt(b.x === a.x ? 0 : (x - a.x) / (b.x - a.x)) * (b.v - a.v);
+  }
+  if (serie.length && Math.abs(x - serie[0].x) < 0.5) return serie[0].v;
+  if (serie.length && Math.abs(x - serie[serie.length - 1].x) < 0.5) return serie[serie.length - 1].v;
+  return null;
+}
+function glattePfad(a, b, Y) {
+  const n = Math.max(6, Math.round((b.x - a.x) / 6));
+  let d = "";
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    const x = a.x + t * (b.x - a.x), y = Y(a.v + glatt(t) * (b.v - a.v));
+    d += (i ? "L" : "M") + x.toFixed(1) + "," + y.toFixed(1);
+  }
+  return d;
+}
+
+function zeichne() {
+  baueGeometrie();
+  const g = G;
+  svg.innerHTML = "";
+  svg.setAttribute("width", g.breite);
+  svg.setAttribute("height", g.H);
+  svg.setAttribute("viewBox", "0 0 " + g.breite + " " + g.H);
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-labelledby", "svgTitel svgBeschr");
+  strip.style.width = g.breite + "px";
+  strip.style.height = g.H + "px";
+  el("title", { id: "svgTitel" }, svg, "Höhenprofil und Rucksackgewicht, Tag 1 bis 7");
+  el("desc", { id: "svgBeschr" }, svg, "Durchgehendes Diagramm über sieben Wandertage: weiße Höhenlinie von " + Math.round(g.hMin) +
+    " bis " + Math.round(g.hMax) + " Metern, darunter die Rucksackgewichte von Olli und Rudi. Auf eine Stelle klicken zeigt Details.");
+
+  /* Tagestrenner + Beschriftung */
+  g.tage.forEach((t) => {
+    const lx = t.x0 - LUECKE / 2;
+    el("line", { x1: lx, x2: lx, y1: 2, y2: g.H - 8, stroke: "#fff", "stroke-opacity": .65, "stroke-width": 1 }, svg);
+  });
+  const tb = $("tagband");
+  tb.innerHTML = "";
+  tb.style.width = g.breite + "px";
+  tb.style.height = g.labelH + "px";
+  g.tage.forEach((t, i) => {
+    const links = t.x0 - LUECKE / 2;
+    const rechts = i < g.tage.length - 1 ? g.tage[i + 1].x0 - LUECKE / 2 : g.breite;
+    const tafel = html("div", { class: "tag-tafel" }, tb);
+    tafel.style.left = links + "px";
+    tafel.style.width = (rechts - links) + "px";
+    html("span", { class: "tag-label" }, tafel, tagLabel(t.tag));
+  });
+
+  /* Höhenprofil, Orte und Foto-Punkte: dynamische Gruppe (Höhenskala folgt dem sichtbaren Ausschnitt) */
+  el("g", { id: "gHoehe" }, svg);
+
+  /* Rucksackgewicht */
+  [["O", "#ffffff", "kreis"], ["R", "#4dd9e8", "quadrat"]].forEach((s) => {
+    const serie = g.serien[s[0]];
+    for (let i = 1; i < serie.length; i++) {
+      const a = serie[i - 1], b = serie[i];
+      const tagsueber = a.tag === b.tag && a.teil === "M" && b.teil === "A";
+      el("path", { d: glattePfad(a, b, g.YG), fill: "none", stroke: s[1], "stroke-width": 2.2, "stroke-linecap": "round",
+        "stroke-dasharray": tagsueber ? "none" : "6 5", "stroke-opacity": tagsueber ? 1 : .85 }, svg);
+    }
+    serie.forEach((p) => {
+      if (s[2] === "kreis") el("circle", { cx: p.x, cy: g.YG(p.v), r: 4, fill: s[1] }, svg);
+      else el("rect", { x: p.x - 4, y: g.YG(p.v) - 4, width: 8, height: 8, fill: s[1] }, svg);
+    });
+  });
+
+  /* Dünne gestrichelte Linie von jedem Foto nach unten über beide Diagramme, Punkt auf der Höhenlinie */
+  g.fotos.forEach((a) => {
+    const top = g.PH - a.lane * (g.S + 8);
+    el("line", { x1: a.x, x2: a.x, y1: top, y2: g.weightTop + g.weightH + 10, stroke: "#fff", "stroke-width": .75, "stroke-dasharray": "2 4", "stroke-opacity": .95 }, svg);
+  });
+
+  /* Cursor */
+  const cg = el("g", { id: "cursor", "aria-hidden": "true", visibility: "hidden" }, svg);
+  el("line", { id: "cLinie", x1: 0, x2: 0, y1: 2, y2: g.H - 8, stroke: "#fff", "stroke-width": .75, "stroke-dasharray": "4 4" }, cg);
+  el("circle", { id: "cH", r: 5, fill: "#000", stroke: "#fff", "stroke-width": 2 }, cg);
+  el("circle", { id: "cO", r: 5, fill: "#000", stroke: "#fff", "stroke-width": 2 }, cg);
+  el("rect", { id: "cR", width: 10, height: 10, fill: "#000", stroke: "#4dd9e8", "stroke-width": 2 }, cg);
+
+  zeichneFotoband();
+  const z = zielBereich();
+  if (z) { g.lo = z.lo; g.hi = z.hi; }
+  g.zLo = g.lo; g.zHi = g.hi;
+  zeichneHoehe();
+  if (cursorX != null) setzeCursor(cursorX, false); else info.hidden = true;
+}
+
+/* ---------------------------------------------------------------------
+   Höhenlinie dynamisch: Die Höhenskala folgt dem sichtbaren Ausschnitt (Fotos oben und Gewichtslinie bleiben statisch).
+   --------------------------------------------------------------------- */
+const wenigBewegung = window.matchMedia("(prefers-reduced-motion: reduce)");
+let hoeheAnim = null;
+const textBreiten = {};
+
+function zielBereich() {
+  const g = G, l = scroller.scrollLeft, r = l + scroller.clientWidth;
+  let lo = Infinity, hi = -Infinity;
+  const nimm = (h) => { if (h < lo) lo = h; if (h > hi) hi = h; };
+  g.tage.forEach((t) => {
+    if (!t.pts.length || t.x1 < l || t.x0 > r) return;
+    t.pts.forEach((p) => { const x = t.x0 + (p.u - t.u0) * t.pxU; if (x >= l && x <= r) nimm(p.hoehe); });
+    [l, r].forEach((x) => { if (x >= t.x0 && x <= t.x1) nimm(nachU(t.pts, t.u0 + (x - t.x0) / t.pxU).hoehe); });
+  });
+  if (lo === Infinity) return null;
+  if (hi - lo < 60) { const c = (hi + lo) / 2; lo = c - 30; hi = c + 30; }
+  const m = (hi - lo) * 0.04;
+  return { lo: lo - m, hi: hi + m };
+}
+function planeHoehe(sofort) {
+  const z = zielBereich();
+  if (z) { G.zLo = z.lo; G.zHi = z.hi; }
+  if (sofort || wenigBewegung.matches) { G.lo = G.zLo; G.hi = G.zHi; zeichneHoehe(); return; }
+  if (!hoeheAnim) hoeheAnim = requestAnimationFrame(hoeheSchritt);
+}
+function hoeheSchritt() {
+  hoeheAnim = null;
+  G.lo += (G.zLo - G.lo) * 0.25; G.hi += (G.zHi - G.hi) * 0.25;
+  const fertig = Math.abs(G.zLo - G.lo) < 0.3 && Math.abs(G.zHi - G.hi) < 0.3;
+  if (fertig) { G.lo = G.zLo; G.hi = G.zHi; }
+  zeichneHoehe();
+  if (!fertig) hoeheAnim = requestAnimationFrame(hoeheSchritt);
+}
+scroller.addEventListener("scroll", () => planeHoehe(false), { passive: true });
+
+function zeichneHoehe() {
+  const g = G, grp = $("gHoehe");
+  if (!grp) return;
+  grp.innerHTML = "";
+  const l = scroller.scrollLeft - 400, r = scroller.scrollLeft + scroller.clientWidth + 400;
+
+  /* Linie (frei schwebend, Tage nicht verbunden). Durchgezogen = Uhr, gestrichelt = Aufzeichnungslücke (Verlauf nach GPX). */
+  g.tage.forEach((t) => {
+    if (t.pts.length < 2 || t.x1 < l || t.x0 > r) return;
+    const X = (p) => t.x0 + (p.u - t.u0) * t.pxU;
+    let i0 = 0; while (i0 < t.pts.length - 2 && X(t.pts[i0 + 1]) < l) i0++;
+    let i1 = t.pts.length - 1; while (i1 > 1 && X(t.pts[i1 - 1]) > r) i1--;
+    const pts = t.pts.slice(i0, i1 + 1);
+    const P = (p) => X(p).toFixed(1) + "," + g.Y(p.hoehe).toFixed(1);
+    const laeufe = [];
+    for (let i = 1; i < pts.length; i++) {
+      const gestrichelt = pts[i].luecke;
+      const letzter = laeufe[laeufe.length - 1];
+      if (letzter && letzter.gestrichelt === gestrichelt) letzter.pts.push(pts[i]);
+      else laeufe.push({ gestrichelt, pts: [pts[i - 1], pts[i]] });
+    }
+    laeufe.forEach((lf) => {
+      el("path", { d: "M" + lf.pts.map(P).join(" L"), fill: "none", stroke: "#fff", "stroke-width": 2.5, "stroke-linejoin": "round",
+        "stroke-linecap": lf.gestrichelt ? "butt" : "round", "stroke-dasharray": lf.gestrichelt ? "7 6" : "none" }, grp);
+    });
+  });
+
+  /* Punkt auf der Höhenlinie an jedem Foto */
+  g.fotos.forEach((a) => {
+    if (a.x < l || a.x > r) return;
+    el("circle", { cx: a.x, cy: g.Y(a.hoehe), r: 3.2, fill: "#000", stroke: "#fff", "stroke-width": 1.5 }, grp);
+  });
+
+  /* Beschriftete Orte */
+  g.orte.forEach((a) => {
+    if (a.x < l - 100 || a.x > r + 100) return;
+    const o = a.o, t = a.t, y = g.Y(a.hoehe);
+    const wert = o.hoehe != null ? o.hoehe : Math.round(a.hoehe);
+    const text = o.name + " · " + zahl(wert, 0) + " m";
+    el("circle", { cx: a.x, cy: y, r: 4, fill: "#000", stroke: "#fff", "stroke-width": 2 }, grp);
+    const attr = { x: a.x, y: y - 11, "text-anchor": "middle", "font-size": 14, "font-weight": 700, stroke: "#000", "stroke-width": 3, "paint-order": "stroke", "stroke-linejoin": "round" };
+    let ziel = grp, link = null;
+    if (o.link) { link = el("a", { href: o.link, target: "_blank", rel: "noopener noreferrer", "aria-label": o.name + " auf Wikipedia öffnen (neuer Tab)" }, grp); ziel = link; attr["text-decoration"] = "underline"; attr.style = "cursor:pointer"; }
+    const txt = el("text", attr, ziel, text);
+    if (link) link.addEventListener("click", (e) => e.stopPropagation());
+    if (textBreiten[text] == null) textBreiten[text] = txt.getComputedTextLength ? txt.getComputedTextLength() : text.length * 8;
+    const bw = textBreiten[text];
+    let anker = "middle", tx = a.x;
+    if (a.x - bw / 2 < t.x0 + 2) { anker = "start"; tx = t.x0; } else if (a.x + bw / 2 > t.x1 - 2) { anker = "end"; tx = t.x1; }
+    let unten = o.pos === "u", ty = y - 11;
+    if (o.pos === "auto") {
+      if (anker === "middle") {                       // Hang: Text auf die Seite, wo die Kurve tiefer liegt (nicht durch die Linie)
+        const steigt = nachZeit(t.pts, a.mm + 20).hoehe > nachZeit(t.pts, a.mm - 20).hoehe;
+        anker = steigt ? "end" : "start"; tx = a.x + (steigt ? -9 : 9); ty = y - 9;
+      } else {
+        const nb = nachZeit(t.pts, a.mm + (anker === "end" ? -30 : 30)).hoehe;   // steigt die Kurve zum Text hin, Text unter die Kurve
+        unten = nb > a.hoehe;
+      }
+    }
+    txt.setAttribute("text-anchor", anker); txt.setAttribute("x", tx); txt.setAttribute("y", unten ? y + 22 : ty);
+  });
+
+  /* Höhenpunkt des Detailstrichs mitführen */
+  const ch = $("cH");
+  if (ch && cursorX != null && cursorH != null) ch.setAttribute("cy", g.Y(cursorH));
+}
+
+function zeichneFotoband() {
+  const g = G, band = $("fotoband");
+  band.innerHTML = "";
+  band.style.width = g.breite + "px";
+  band.style.height = g.PH + "px";
+  g.fotos.forEach((a) => {
+    const f = a.f, n = a.liste.length;
+    const beschr = tagLabel(f.tag) + ", " + f.zeit + " Uhr" + (n > 1 ? " – " + n + " Fotos" : (f.beschreibung ? " – " + f.beschreibung : ""));
+    const left = Math.max(2, Math.min(g.breite - g.S - 2, a.x - g.S / 2));
+    const top = g.PH - (a.lane + 1) * (g.S + 8) + 8;
+    const item = html("div", { class: "foto-item", role: "listitem" }, band);
+    item.style.cssText = "left:" + left + "px;top:" + top + "px;width:" + g.S + "px;height:" + g.S + "px";
+    const b = html("button", { type: "button", class: "foto", title: beschr, "aria-label": (n > 1 ? n + " Fotos ansehen: " : "Foto vergrößern: ") + beschr }, item);
+    const img = html("img", { alt: "", loading: "lazy", draggable: "false" }, b);
+    img.src = f.thumbUrl;
+    img.onerror = () => { img.onerror = null; img.removeAttribute("src"); };
+    if (n > 1) html("span", { class: "foto-anzahl", "aria-hidden": "true" }, item, String(n));
+    b.addEventListener("click", () => oeffneFoto(a.liste, b));
+  });
+}
+
+/* =====================================================================
+   CURSOR (Strich mit Angaben)
+   ===================================================================== */
+
+const RASTER = 5;   // Minuten: Anzeige im Detailstrich nur im 5-Minuten-Abstand (Daten dahinter sind minutengenau)
+/* Auswählbare Stellen eines Tages: Anfang, alle Rasterzeiten dazwischen, Ende (Anfang/Ende auch abseits des Rasters) */
+function kandidaten(tag) {
+  if (!tag.kand) {
+    const k = [tag.u0];
+    for (let q = Math.ceil(tag.u0 / RASTER) * RASTER; q < tag.u1; q += RASTER) if (q > tag.u0) k.push(q);
+    if (tag.u1 > tag.u0) k.push(tag.u1);
+    tag.kand = k;
+  }
+  return tag.kand;
+}
+function schnappe(xRoh) {
+  const g = G;
+  const tag = g.tage.find((t) => xRoh < t.x1 + LUECKE / 2) || g.tage[g.tage.length - 1];
+  if (!tag.pts.length) return null;
+  let x = Math.max(tag.x0, Math.min(tag.x1, xRoh));
+  let u = tag.u0 + (x - tag.x0) / tag.pxU;
+  if (X_ACHSE === "zeit") {
+    const k = kandidaten(tag);
+    let best = k[0];
+    k.forEach((q) => { if (Math.abs(q - u) < Math.abs(best - u)) best = q; });
+    u = best; x = tag.x0 + (u - tag.u0) * tag.pxU;
+  }
+  return { tag, x, u };
+}
+function setzeCursor(xRoh, ansehen) {
+  const g = G;
+  const sn = schnappe(xRoh);
+  if (!sn) return;
+  const tag = sn.tag, x = sn.x;
+  cursorX = x;
+  const p = nachU(tag.pts, sn.u);
+  cursorH = p.hoehe;
+  p.m = X_ACHSE === "zeit" ? sn.u : Math.round(p.m / RASTER) * RASTER;
+  const gesamt = tag.kmStart + p.km;
+  const wO = gewichtBei(g.serien.O, x), wR = gewichtBei(g.serien.R, x);
+
+  const cg = $("cursor");
+  cg.setAttribute("visibility", "visible");
+  $("cLinie").setAttribute("x1", x); $("cLinie").setAttribute("x2", x);
+  $("cH").setAttribute("cx", x); $("cH").setAttribute("cy", g.Y(p.hoehe));
+  const cO = $("cO"), cR = $("cR");
+  if (wO != null) { cO.setAttribute("cx", x); cO.setAttribute("cy", g.YG(wO)); cO.setAttribute("visibility", "visible"); } else cO.setAttribute("visibility", "hidden");
+  if (wR != null) { cR.setAttribute("x", x - 5); cR.setAttribute("y", g.YG(wR) - 5); cR.setAttribute("visibility", "visible"); } else cR.setAttribute("visibility", "hidden");
+
+  info.innerHTML = "";
+  html("strong", null, info, tagLabel(tag.tag));
+  html("div", null, info, minutenText(p.m) + " Uhr · " + zahl(p.hoehe, 0) + " m Höhe");
+  html("div", null, info, zahl(gesamt, 2) + " km seit Start");
+  html("div", null, info, "Rucksack (interpoliert):");
+  html("div", null, info, "Olli " + (wO != null ? zahl(wO, 1) + " kg" : "–") + " · Rudi " + (wR != null ? zahl(wR, 1) + " kg" : "–"));
+  info.hidden = false;
+  info.style.top = (g.PH + 20) + "px";
+  const w = info.offsetWidth;
+  let links = x + 12;
+  const sichtRechts = scroller.scrollLeft + scroller.clientWidth;
+  if (links + w > sichtRechts - 8) links = x - 12 - w;
+  if (links < scroller.scrollLeft + 8) links = scroller.scrollLeft + 8;
+  info.style.left = links + "px";
+  $("status").textContent = tagLabel(tag.tag) + ", " + minutenText(p.m) + " Uhr, " + Math.round(p.hoehe) + " Meter Höhe, " +
+    zahl(gesamt, 1) + " Kilometer seit Start. Olli " + (wO != null ? zahl(wO, 1) : "keine Angabe") + ", Rudi " + (wR != null ? zahl(wR, 1) : "keine Angabe") + " Kilogramm.";
+  if (ansehen) {
+    const l = scroller.scrollLeft, r = l + scroller.clientWidth;
+    if (x < l + 20) scroller.scrollLeft = x - 40;
+    else if (x > r - 20) scroller.scrollLeft = x - scroller.clientWidth + 40;
+  }
+}
+function versteckeCursor() {
+  cursorX = null;
+  info.hidden = true;
+  const cg = $("cursor");
+  if (cg) cg.setAttribute("visibility", "hidden");
+}
+
+svg.addEventListener("click", (e) => {
+  const r = svg.getBoundingClientRect();
+  const x = e.clientX - r.left;
+  const sn = schnappe(x);
+  if (cursorX != null && sn && Math.abs(sn.x - cursorX) < 1) versteckeCursor();   // erneut auf denselben Punkt: ausblenden
+  else setzeCursor(x, false);
+});
+
+scroller.addEventListener("keydown", (e) => {
+  if (e.target !== scroller) return;
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    setzeCursor(scroller.scrollLeft + scroller.clientWidth / 2, false);
+  } else if (e.shiftKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+    e.preventDefault();
+    const rechts = e.key === "ArrowRight";
+    const sn = cursorX != null ? schnappe(cursorX) : null;
+    if (!sn) { setzeCursor(scroller.scrollLeft + scroller.clientWidth / 2, true); return; }
+    const t = sn.tag, k = kandidaten(t);
+    let i = k.indexOf(sn.u) + (rechts ? 1 : -1), ziel;
+    if (X_ACHSE !== "zeit") ziel = sn.x + (rechts ? 40 : -40);
+    else if (i >= k.length) { const n = G.tage[t.tag]; ziel = n ? n.x0 : t.x1; }         // nächster Tag
+    else if (i < 0) { const v = G.tage[t.tag - 2]; ziel = v ? v.x1 : t.x0; }              // vorheriger Tag
+    else ziel = t.x0 + (k[i] - t.u0) * t.pxU;
+    setzeCursor(ziel, true);
+  }
+});
+
+/* Mausrad (senkrecht) scrollt das Diagramm seitlich */
+scroller.addEventListener("wheel", (e) => {
+  if (e.shiftKey || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+  const max = scroller.scrollWidth - scroller.clientWidth;
+  if ((e.deltaY < 0 && scroller.scrollLeft > 0) || (e.deltaY > 0 && scroller.scrollLeft < max)) {
+    e.preventDefault();
+    scroller.scrollLeft += e.deltaY;
+  }
+}, { passive: false });
+
+/* =====================================================================
+   LEGENDE
+   ===================================================================== */
+
+(function baueLegende() {
+  const l = $("legende");
+  const zeile = (svgInhalt, text) => { const li = html("li", null, l); li.innerHTML = '<svg viewBox="0 0 34 14" aria-hidden="true">' + svgInhalt + "</svg>"; li.appendChild(document.createTextNode(text)); };
+  zeile('<line x1="0" y1="7" x2="34" y2="7" stroke="#fff" stroke-width="2.5"/>', "Höhe");
+  zeile('<line x1="0" y1="7" x2="34" y2="7" stroke="#fff" stroke-width="2"/><circle cx="17" cy="7" r="4" fill="#fff"/>', "Rucksack Olli");
+  zeile('<line x1="0" y1="7" x2="34" y2="7" stroke="#4dd9e8" stroke-width="2"/><rect x="13" y="3" width="8" height="8" fill="#4dd9e8"/>', "Rucksack Rudi");
+  zeile('<line x1="0" y1="7" x2="34" y2="7" stroke="#fff" stroke-width="2.5" stroke-dasharray="6 5"/>', "interpoliert");
+})();
+
+/* =====================================================================
+   DIALOGE (Foto-Vollbild, Doku)
+   ===================================================================== */
+
+let offenerDialog = null, dialogOpener = null;
+function oeffneDialog(dlg, opener, fokus) {
+  offenerDialog = dlg; dialogOpener = opener || document.activeElement;
+  dlg.hidden = false;
+  document.body.style.overflow = "hidden";
+  $("hauptinhalt").setAttribute("aria-hidden", "true");
+  (fokus || dlg.querySelector("button")).focus();
+}
+function schliesseDialog() {
+  if (!offenerDialog) return;
+  offenerDialog.hidden = true;
+  offenerDialog = null;
+  document.body.style.overflow = "";
+  $("hauptinhalt").removeAttribute("aria-hidden");
+  if (dialogOpener && document.contains(dialogOpener)) dialogOpener.focus();
+}
+document.addEventListener("keydown", (e) => {
+  if (!offenerDialog) return;
+  if (e.key === "Escape") { e.preventDefault(); schliesseDialog(); return; }
+  if (offenerDialog === $("overlay")) {
+    if (e.key === "ArrowLeft") blaettere(-1);
+    else if (e.key === "ArrowRight") blaettere(1);
+  }
+  if (e.key === "Tab") {
+    const f = Array.from(offenerDialog.querySelectorAll("button:not([disabled]), [href], [tabindex]:not([tabindex='-1'])")).filter((b) => !b.hidden);
+    if (!f.length) return;
+    const erst = f[0], letzt = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === erst) { e.preventDefault(); letzt.focus(); }
+    else if (!e.shiftKey && document.activeElement === letzt) { e.preventDefault(); erst.focus(); }
+    else if (!offenerDialog.contains(document.activeElement)) { e.preventDefault(); erst.focus(); }
+  } else if (e.key === "Escape") schliesseDialog();
+});
+
+/* Doku */
+$("dokuBtn").addEventListener("click", () => oeffneDialog($("doku"), $("dokuBtn"), $("dokuX")));
+$("dokuX").addEventListener("click", schliesseDialog);
+
+/* Stats: alles aus den Daten berechnet (inkl. gestrichelter Abschnitte) */
+function dauerText(min) {
+  const m = Math.round(min);
+  return m < 1 ? "0 min" : (m >= 60 ? Math.floor(m / 60) + " h " : "") + (m % 60 ? pad2(m % 60) + " min" : "");
+}
+function zeitUeber(pts, grenze) {
+  let s = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i], dm = b.m - a.m;
+    if (dm <= 0) continue;
+    if (a.hoehe >= grenze && b.hoehe >= grenze) s += dm;
+    else if (a.hoehe >= grenze || b.hoehe >= grenze) {
+      const hoch = Math.max(a.hoehe, b.hoehe), tief = Math.min(a.hoehe, b.hoehe);
+      s += dm * (hoch - grenze) / (hoch - tief);
+    }
+  }
+  return s;
+}
+function berechneStats() {
+  const SCHWELLE = 3;                       // Höhenänderungen unter 3 m gelten als Rauschen
+  let auf = 0, ab = 0, km = 0, ueber24 = 0, ueber23 = 0, top = null;
+  G.tage.forEach((t) => {
+    if (!t.pts.length) return;
+    let ref = t.pts[0].hoehe;
+    t.pts.forEach((p) => {
+      const d = p.hoehe - ref;
+      if (d >= SCHWELLE) { auf += d; ref = p.hoehe; } else if (d <= -SCHWELLE) { ab -= d; ref = p.hoehe; }
+      if (!top || p.hoehe > top.hoehe) top = { hoehe: p.hoehe, tag: t.tag, m: p.m };
+    });
+    km += t.km;
+    ueber24 += zeitUeber(t.pts, 2400);
+    ueber23 += zeitUeber(t.pts, 2300);
+  });
+  return { auf, ab, km, ueber24, ueber23, top };
+}
+function oeffneStats() {
+  const s = berechneStats(), l = $("statsListe");
+  l.innerHTML = "";
+  [["Aufstieg gesamt", "ca. " + zahl(s.auf, 0) + " Hm", ""],
+   ["Abstieg gesamt", "ca. " + zahl(s.ab, 0) + " Hm", ""],
+   ["Strecke gesamt", "ca. " + zahl(s.km, 1) + " km", "Distanz der Uhr, vermutlich zu niedrig"],
+   ["Höchster Punkt", zahl(s.top.hoehe, 0) + " m", "Tag " + s.top.tag + ", " + minutenText(s.top.m) + " Uhr"],
+   ["Zeit über 2.400 m", dauerText(s.ueber24), ""],
+   ["Zeit über 2.300 m", dauerText(s.ueber23), ""]].forEach((z) => {
+    const d = html("div", { class: "zeile" }, l);
+    html("dt", null, d, z[0]);
+    const dd = html("dd", null, d, z[1]);
+    if (z[2]) html("small", null, dd, z[2]);
+  });
+  $("statsHinweis").textContent = "Grundlage: Minutenwerte der Uhr (Höhen korrigiert), die Lücke an Tag 4 ist interpoliert (nach GPX-Form). " +
+    "Auf-/Abstieg ohne Höhenänderungen unter 3 m. Zeiten inklusive Pausen. Die Strecke stammt von der Uhr ohne GPS und liegt deutlich unter der echten " +
+    "(Tag 1: laut GPX 9,2 km).";
+  oeffneDialog($("stats"), $("statsBtn"), $("statsX"));
+}
+$("statsBtn").addEventListener("click", oeffneStats);
+$("statsX").addEventListener("click", schliesseDialog);
+
+/* Foto-Vollbild: zeigt den Stapel eines Vorschaubilds (ein oder mehrere Fotos mit gleichem Zeitstempel) */
+let fotoListe = [], fotoIndex = 0;
+function zeigeFoto() {
+  const f = fotoListe[fotoIndex], n = fotoListe.length;
+  const txt = tagLabel(f.tag) + ", " + f.zeit + " Uhr" + (n > 1 ? ", Foto " + (fotoIndex + 1) + " von " + n : "") + (f.beschreibung ? " – " + f.beschreibung : "");
+  const img = $("ovBild");
+  img.alt = txt;
+  img.src = f.fullUrl;
+  const t = $("ovText");
+  if (f.beschreibung) { t.textContent = f.beschreibung; t.hidden = false; } else t.hidden = true;
+  const z = $("ovZaehler");
+  z.hidden = n < 2;
+  z.textContent = (fotoIndex + 1) + " / " + n;
+  $("ovPrev").hidden = $("ovNext").hidden = n < 2;
+  $("ovPrev").disabled = fotoIndex === 0;
+  $("ovNext").disabled = fotoIndex === n - 1;
+  $("status").textContent = txt;
+}
+function oeffneFoto(liste, opener) {
+  fotoListe = liste;
+  fotoIndex = 0;
+  zeigeFoto();
+  oeffneDialog($("overlay"), opener, $("ovX"));
+}
+function blaettere(d) {
+  const n = fotoIndex + d;
+  if (n < 0 || n >= fotoListe.length) return;
+  fotoIndex = n; zeigeFoto();
+}
+$("ovX").addEventListener("click", schliesseDialog);
+$("ovPrev").addEventListener("click", () => blaettere(-1));
+$("ovNext").addEventListener("click", () => blaettere(1));
+let ovX0 = 0, ovY0 = 0;
+$("overlay").addEventListener("touchstart", (e) => { if (e.touches.length === 1) { ovX0 = e.touches[0].clientX; ovY0 = e.touches[0].clientY; } }, { passive: true });
+$("overlay").addEventListener("touchend", (e) => {
+  if (!e.changedTouches.length) return;
+  const dx = e.changedTouches[0].clientX - ovX0, dy = e.changedTouches[0].clientY - ovY0;
+  if (Math.abs(dx) >= 50 && Math.abs(dx) > Math.abs(dy) * 1.5) blaettere(dx < 0 ? 1 : -1);
+}, { passive: true });
+
+/* =====================================================================
+   FOTOS LADEN
+   ===================================================================== */
+
+async function ladeFotos() {
+  try {
+    const url = FOTOS_JSON_URL + (FOTOS_JSON_URL.indexOf("?") >= 0 ? "&" : "?") + "t=" + Date.now();
+    const r = await fetch(url, { cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json();
+    const basis = new URL(FOTOS_JSON_URL, location.href);
+    fotoDaten = (j.fotos || []).filter((f) => f && f.tag >= 1 && f.tag <= TAGE_ANZAHL && /^\d{1,2}:\d{2}$/.test(f.zeit) && f.thumbUrl && f.fullUrl)
+      .map((f) => ({ id: String(f.id), tag: Number(f.tag), zeit: f.zeit, beschreibung: f.beschreibung || "",
+        thumbUrl: new URL(f.thumbUrl, basis).href, fullUrl: new URL(f.fullUrl, basis).href }));
+  } catch (err) {
+    fotoDaten = [];
+  }
+  zeichne();
+}
+
+/* Escape blendet den Strich aus, wenn kein Dialog offen ist */
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !offenerDialog) versteckeCursor(); });
+
+/* Start und Größenänderung (nur bei Wechsel Handy/Desktop neu zeichnen) */
+let rz = null, letzteBreite = 0;
+window.addEventListener("resize", () => {
+  clearTimeout(rz);
+  rz = setTimeout(() => {
+    const m = window.matchMedia("(max-width: 768px)").matches;
+    const b = scroller.clientWidth;
+    if (m !== letzterModus || Math.abs(b - letzteBreite) > 2) {   // Höhenänderungen (Adressleiste am Handy) ignorieren
+      letzterModus = m; letzteBreite = b;
+      const s = scroller.scrollLeft; zeichne(); scroller.scrollLeft = s;
+    }
+  }, 150);
+});
+letzterModus = window.matchMedia("(max-width: 768px)").matches;
+letzteBreite = scroller.clientWidth;
+zeichne();
+ladeFotos();
+</script>
+</body>
+</html>
