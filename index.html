@@ -32,20 +32,24 @@
     font-size:.875rem; min-height:32px; flex:0 0 auto;
   }
   h1 { margin: 0; font-size: 2rem; line-height: 1.15; letter-spacing:.02em; }
-  main { padding: 0 0 8px; }
-    .legende { display:flex; flex-wrap:wrap; gap:6px 20px; margin:10px var(--abstand) 8px; padding:0; list-style:none; font-size:.875rem; }
+  /* Alles auf einen Bildschirm: Kopf, Legende, Diagramm (füllt den Rest) und Fußzeile, kein senkrechtes Scrollen nötig */
+  html { height:100%; }
+  body { height:100vh; height:100dvh; display:flex; flex-direction:column; overflow-x:hidden; overflow-y:auto; }
+  header.kopf { flex:0 0 auto; }
+  main { flex:1 1 0; min-height:0; display:flex; flex-direction:column; padding:0; }
+    .legende { flex:0 0 auto; display:flex; flex-wrap:wrap; gap:4px 20px; margin:6px var(--abstand) 4px; padding:0; list-style:none; font-size:.875rem; }
   .legende li { display:flex; align-items:center; gap:8px; }
   .legende svg { width:34px; height:14px; overflow:visible; flex:0 0 auto; }
 
   /* Diagramm */
   .scroller {
-    position: relative; overflow-x: auto; overflow-y: hidden;
+    position: relative; overflow-x: auto; overflow-y: hidden; flex:1 1 0; min-height:360px;
     -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
     scrollbar-width: none; -ms-overflow-style: none;
   }
   .scroller::-webkit-scrollbar { display:none; }
   .strip { position: relative; }
-  .strip svg { display:block; touch-action: pan-x pan-y; cursor: crosshair; }
+  .strip svg { display:block; touch-action: pan-x; cursor: crosshair; }
   svg text { fill:#fff; font-family: inherit; }
   .tagband { position:absolute; left:0; top:0; pointer-events:none; }
   .tag-tafel { position:absolute; top:0; }
@@ -71,7 +75,7 @@
   .info[hidden] { display:none; }
   .info strong { display:block; }
 
-  footer { padding: 18px var(--abstand) 30px; font-size:.8rem; text-align:center; }
+  footer { flex:0 0 auto; padding:6px var(--abstand) 8px; font-size:.8rem; line-height:1.3; text-align:center; }
 
   /* Dialoge */
   .overlay { position:fixed; inset:0; z-index:200; background:#000; display:flex; align-items:center; justify-content:center; }
@@ -98,7 +102,7 @@
   .doku-inhalt ul { padding-left:20px; margin:6px 0; }
   .doku-panel .knopf { position:fixed; }
   .stats-inhalt dl { margin:14px 0 0; }
-  .stats-inhalt .zeile { display:flex; justify-content:space-between; gap:16px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,.35); }
+  .stats-inhalt .zeile { display:flex; justify-content:space-between; gap:16px; padding:8px 0; border-bottom:1px solid rgba(255,255,255,.35); }
   .stats-inhalt dt { font-size:1rem; }
   .stats-inhalt dd { margin:0; font-size:1.05rem; font-weight:700; text-align:right; }
   .stats-inhalt dd small { display:block; font-weight:400; font-size:.8rem; }
@@ -177,7 +181,7 @@
       <li>Stelle im Diagramm antippen oder klicken: dünner gestrichelter Strich (rastet im 5-Minuten-Abstand ein; Anfang und Ende jedes Tages sind immer wählbar; die Daten dahinter sind minutengenau; der nächstgelegene Wert wird angezeigt) mit Tag, Uhrzeit, Höhe, Strecke (gesamt seit Beginn Tag 1) und Rucksackgewicht (interpoliert). Erneut an anderer Stelle tippen verschiebt den Strich; erneut auf denselben Punkt tippen oder Esc blendet ihn aus.</li>
       <li>Tastatur: Diagramm fokussieren (Tab), Enter setzt den Strich in die Bildmitte, Umschalt + Pfeil links/rechts verschiebt ihn um 5 Minuten.</li>
       <li>Vorschaubild antippen: Vollbild, × oben rechts (oder Esc) schließt. Steht eine Zahl im Vorschaubild, liegen dort mehrere Fotos: mit Wischen (Handy) bzw. Pfeiltasten / Pfeilen (Bildschirm) durchblättern.</li>
-      <li>„Stats“ oben rechts: Aufstieg, Abstieg, Strecke, höchster Punkt sowie Zeit über 2.400 m und 2.300 m (aus den Uhrdaten berechnet).</li>
+      <li>„Stats“ oben rechts: Aufstieg, Abstieg, Strecke, höchster Punkt sowie Zeit über 2.500, 2.400 und 2.300 m, Sichtungen großer Beutegreifer, Duschen/Vollbäder (Strecke und Zeiten aus den Uhrdaten berechnet, der Rest von Hand).</li>
     </ul>
 
     <h3>Dateien</h3>
@@ -921,12 +925,12 @@ function baueGeometrie() {
   const lanes = fotos.length ? Math.max.apply(null, fotos.map((a) => a.lane)) + 1 : 0;
   const labelH = 34;                                   // Zeile mit dem (mitlaufenden) Tageslabel
   const PH = labelH + 8 + lanes * (S + 8);              // Unterkante des Fotobands
-  const vh = window.innerHeight || 800;
-  const elevH = mobil ? Math.max(300, Math.round(vh * 0.66)) : Math.max(240, Math.min(480, Math.round(vh * 0.42)));
-  const weightH = mobil ? 90 : 110;
+  const verfuegbar = Math.max(360, scroller.clientHeight || (window.innerHeight - 200));   // Höhe des Diagrammbereichs (füllt den Bildschirm)
+  const weightH = mobil ? 80 : 96;
   const elevTop = PH + 34;                              // Platz für Gipfelbeschriftungen über der Linie
-  const weightTop = elevTop + elevH + 34;
-  const H = weightTop + weightH + 20;
+  const elevH = Math.max(120, verfuegbar - elevTop - 30 - weightH - 16);
+  const weightTop = elevTop + elevH + 30;
+  const H = weightTop + weightH + 16;
 
   const alleG = [];
   gewichtDaten.forEach((d) => ["O_M", "O_A", "R_M", "R_A"].forEach((k) => { if (typeof d[k] === "number") alleG.push(d[k]); }));
@@ -1362,7 +1366,7 @@ function zeitUeber(pts, grenze) {
 }
 function berechneStats() {
   const SCHWELLE = 3;                       // Höhenänderungen unter 3 m gelten als Rauschen
-  let auf = 0, ab = 0, km = 0, ueber24 = 0, ueber23 = 0, top = null;
+  let auf = 0, ab = 0, km = 0, ueber25 = 0, ueber24 = 0, ueber23 = 0, top = null;
   G.tage.forEach((t) => {
     if (!t.pts.length) return;
     let ref = t.pts[0].hoehe;
@@ -1372,28 +1376,31 @@ function berechneStats() {
       if (!top || p.hoehe > top.hoehe) top = { hoehe: p.hoehe, tag: t.tag, m: p.m };
     });
     km += t.km;
+    ueber25 += zeitUeber(t.pts, 2500);
     ueber24 += zeitUeber(t.pts, 2400);
     ueber23 += zeitUeber(t.pts, 2300);
   });
-  return { auf, ab, km, ueber24, ueber23, top };
+  return { auf, ab, km, ueber25, ueber24, ueber23, top };
 }
 function oeffneStats() {
   const s = berechneStats(), l = $("statsListe");
   l.innerHTML = "";
   [["Aufstieg gesamt", "ca. " + zahl(s.auf, 0) + " Hm", ""],
    ["Abstieg gesamt", "ca. " + zahl(s.ab, 0) + " Hm", ""],
-   ["Strecke gesamt", "ca. " + zahl(s.km, 1) + " km", "Distanz der Uhr, vermutlich zu niedrig"],
+   ["Strecke gesamt", "ca. " + zahl(s.km, 1) + " km", "insg. um die 65 km"],
    ["Höchster Punkt", zahl(s.top.hoehe, 0) + " m", "Tag " + s.top.tag + ", " + minutenText(s.top.m) + " Uhr"],
+   ["Zeit über 2.500 m", dauerText(s.ueber25), ""],
    ["Zeit über 2.400 m", dauerText(s.ueber24), ""],
-   ["Zeit über 2.300 m", dauerText(s.ueber23), ""]].forEach((z) => {
+   ["Zeit über 2.300 m", dauerText(s.ueber23), ""],
+   ["Sichtung von großen Beutegreifern (Bären, Wölfe etc.)", "0", ""],
+   ["Duschen und/oder Vollbäder", "0", ""]].forEach((z) => {
     const d = html("div", { class: "zeile" }, l);
     html("dt", null, d, z[0]);
     const dd = html("dd", null, d, z[1]);
     if (z[2]) html("small", null, dd, z[2]);
   });
   $("statsHinweis").textContent = "Grundlage: Minutenwerte der Uhr (Höhen korrigiert), die Lücke an Tag 4 ist interpoliert (nach GPX-Form). " +
-    "Auf-/Abstieg ohne Höhenänderungen unter 3 m. Zeiten inklusive Pausen. Die Strecke stammt von der Uhr ohne GPS und liegt deutlich unter der echten " +
-    "(Tag 1: laut GPX 9,2 km).";
+    "Auf-/Abstieg ohne Höhenänderungen unter 3 m. Zeiten inklusive Pausen. Die berechnete Strecke stammt von der Uhr ohne GPS und liegt deutlich unter der echten (Tag 1: laut GPX 9,2 km).";
   oeffneDialog($("stats"), $("statsBtn"), $("statsX"));
 }
 $("statsBtn").addEventListener("click", oeffneStats);
@@ -1463,20 +1470,20 @@ async function ladeFotos() {
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !offenerDialog) versteckeCursor(); });
 
 /* Start und Größenänderung (nur bei Wechsel Handy/Desktop neu zeichnen) */
-let rz = null, letzteBreite = 0;
+let rz = null, letzteBreite = 0, letzteHoehe = 0;
 window.addEventListener("resize", () => {
   clearTimeout(rz);
   rz = setTimeout(() => {
     const m = window.matchMedia("(max-width: 768px)").matches;
-    const b = scroller.clientWidth;
-    if (m !== letzterModus || Math.abs(b - letzteBreite) > 2) {   // Höhenänderungen (Adressleiste am Handy) ignorieren
-      letzterModus = m; letzteBreite = b;
-      const s = scroller.scrollLeft; zeichne(); scroller.scrollLeft = s;
+    const b = scroller.clientWidth, h = scroller.clientHeight;
+    if (m !== letzterModus || Math.abs(b - letzteBreite) > 2 || Math.abs(h - letzteHoehe) > 2) {
+      letzterModus = m; letzteBreite = b; letzteHoehe = h;
+      const sl = scroller.scrollLeft; zeichne(); scroller.scrollLeft = sl;
     }
   }, 150);
 });
 letzterModus = window.matchMedia("(max-width: 768px)").matches;
-letzteBreite = scroller.clientWidth;
+letzteBreite = scroller.clientWidth; letzteHoehe = scroller.clientHeight;
 zeichne();
 ladeFotos();
 </script>
