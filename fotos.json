@@ -566,6 +566,16 @@
       "thumbUrl": "fotos/1-1020-mu8w30z1-1_t.jpg",
       "fullUrl": "fotos/1-1020-mu8w30z1-1.jpg",
       "beschreibung": "Bärenglocke. Furchtbar nervig..."
+    },
+    {
+      "id": "1-1250-mu9ifjrq-1",
+      "art": "wandern",
+      "thumbUrl": "fotos/1-1250-mu9ifjrq-1_t.jpg",
+      "fullUrl": "fotos/1-1250-mu9ifjrq-1.jpg",
+      "beschreibung": "Ein gutes Ursus auf der Hüttn darf nicht fehlen.",
+      "tag": 1,
+      "zeit": "12:50",
+      "zeitstempel": "05.09.2026 12:50"
     }
   ]
 }
