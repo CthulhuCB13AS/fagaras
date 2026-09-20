@@ -110,20 +110,13 @@
   .stats-inhalt dd small { display:block; font-weight:400; font-size:.8rem; }
   .stats-inhalt .fussnote { font-size:.85rem; margin-top:16px; }
 
-  .nur-mobil { display:none; }
-  .top5 { display:none; }
-  .top5-reihe { display:flex; align-items:center; gap:8px; overflow-x:auto; padding:6px var(--abstand) 8px; scrollbar-width:none; }
-  .top5-reihe::-webkit-scrollbar { display:none; }
-  .top5-foto { flex:0 0 auto; width:52px; height:52px; padding:0; border:2px solid #fff; border-radius:50%; overflow:hidden; background:#000; }
-  .top5-foto img { width:100%; height:100%; object-fit:cover; display:block; }
-  .top5-mehr { flex:0 0 auto; background:#000; border:1px solid #fff; border-radius:999px; padding:2px 14px; min-height:32px; font-size:.875rem; white-space:nowrap; }
-  .top5-leer { font-size:.875rem; }
+  .top5-leer { font-size:.875rem; align-self:center; }
+  .ov-mehr { position:absolute; z-index:3; top:56px; left:50%; transform:translateX(-50%); background:#000; border:2px solid #fff; border-radius:999px; padding:6px 20px; min-height:44px; font-size:1rem; white-space:nowrap; }
+  .ov-mehr[hidden] { display:none; }
   @media (max-width: 768px) {
     header.kopf { flex-wrap:wrap; justify-content:flex-start; gap:6px 12px; }
     h1 { flex:0 0 100%; }
     .kopf-knoepfe { flex:0 0 100%; justify-content:flex-start; }
-    .nur-mobil { display:inline-block; }
-    .top5:not([hidden]) { display:block; }
     .scroller, .scroller * { touch-action: pan-x; }
     .legende { order:1; flex-wrap:nowrap; justify-content:space-between; gap:0 8px; font-size:12px; margin:3px var(--abstand) 4px; white-space:nowrap; }
     .legende li { gap:4px; }
@@ -143,12 +136,12 @@
 <header class="kopf">
   <h1>Făgăraș 2026</h1>
   <div class="kopf-knoepfe">
-    <button type="button" class="doku-btn nur-mobil" id="top5Btn" aria-expanded="false" aria-controls="top5">Top 5 Pics</button>
+    <button type="button" class="doku-btn" id="top5Btn" aria-haspopup="dialog">Top 5 Pics</button>
     <button type="button" class="doku-btn" id="statsBtn" aria-haspopup="dialog" aria-label="Statistik öffnen">Stats</button>
     <button type="button" class="doku-btn" id="dokuBtn" aria-haspopup="dialog" aria-label="Dokumentation öffnen">Doku</button>
   </div>
+  <span class="top5-leer" id="top5Leer" role="status"></span>
 </header>
-<section id="top5" class="top5" hidden aria-label="Zufällig ausgewählte Fotos"><div class="top5-reihe" id="top5Reihe"></div></section>
 
 <main id="hauptinhalt">
   <div class="scroller" id="scroller" tabindex="0" role="region"
@@ -173,6 +166,7 @@
   <div class="ov-zaehler" id="ovZaehler" hidden></div>
   <p class="ov-text" id="ovText" hidden></p>
   <button type="button" class="knopf ov-x" id="ovX" aria-label="Foto schließen">&times;</button>
+  <button type="button" class="ov-mehr" id="ovMehr" hidden>weitere 5 Pics</button>
   <button type="button" class="knopf ov-prev" id="ovPrev" aria-label="Vorheriges Foto">&lsaquo;</button>
   <button type="button" class="knopf ov-next" id="ovNext" aria-label="Nächstes Foto">&rsaquo;</button>
 </div>
@@ -194,7 +188,7 @@
     <h2 id="dokuTitel">Doku – Făgăraș 2026</h2>
 
     <h3>Was ist das?</h3>
-    <p>Eine einzelne HTML-Seite zur 7-tägigen Wanderung. Ein durchgehendes, seitlich scrollbares Diagramm zeigt für alle Tage das Höhenprofil (weiße Linie), darunter den Rucksackgewichtsverlauf von Olli (Kreise) und Rudi (Quadrate, türkis) und darüber runde Foto-Vorschauen (an der Aufnahmezeit, mit dünner gestrichelter Linie nach unten über beide Diagramme). Am Handy lässt sich das Diagramm mit zwei Fingern zoomen (größte Ansicht = Standard, kleinste = ein ganzer Tag); dort öffnet „Top 5 Pics“ fünf zufällig gewählte Fotos, „weitere 5 Bilder“ zeigt die nächsten. Astro-Fotos erscheinen mittig auf der Trennlinie zwischen zwei Tagen, Fotos von Sibiu über dem Punkt „Sibiu“ am Ende.</p>
+    <p>Eine einzelne HTML-Seite zur 7-tägigen Wanderung. Ein durchgehendes, seitlich scrollbares Diagramm zeigt für alle Tage das Höhenprofil (weiße Linie), darunter den Rucksackgewichtsverlauf von Olli (Kreise) und Rudi (Quadrate, türkis) und darüber runde Foto-Vorschauen (an der Aufnahmezeit, mit dünner gestrichelter Linie nach unten über beide Diagramme). Am Handy lässt sich das Diagramm mit zwei Fingern zoomen (größte Ansicht = Standard, kleinste = ein ganzer Tag). „Top 5 Pics“ öffnet sofort ein zufälliges Foto mit Untertitel, Datum, Zeit und Höhe; mit den Pfeilen (oder Pfeiltasten) blätterst du durch fünf Fotos, am fünften startet „weitere 5 Pics“ eine neue Runde. Astro-Fotos erscheinen mittig auf der Trennlinie zwischen zwei Tagen, Fotos von Sibiu über dem Punkt „Sibiu“ am Ende.</p>
 
     <h3>Bedienung</h3>
     <ul>
@@ -271,7 +265,7 @@ const X_ACHSE = "zeit";     // "zeit" (Standard: gleichmäßig, ohne Sprünge) o
 const PX_PRO_STUNDE = 240;  // Breite pro Stunde bei X_ACHSE = "zeit" (mind. aber eine Bildschirmbreite je Tag)
 const PX_PRO_KM = 200;      // Breite pro Kilometer bei X_ACHSE = "km"
 const LUECKE = 84;          // Abstand zwischen den Tagen in px (Nacht)
-const SIBIU_BREITE = 200;   // Platz hinter Tag 7 für den Punkt "Sibiu"
+const SIBIU_BREITE = 70;    // Platz hinter Tag 7 für den Punkt "Sibiu"
 const FOTOS_JSON_URL = "fotos.json";   // zuerst relativ zur Seite (GitHub Pages)
 const FOTOS_JSON_ALT = "https://raw.githubusercontent.com/cthulhucb13as/fagaras/main/fotos.json";   // Ersatz, z. B. wenn die Seite lokal (file://) geöffnet wird
 /* Alternative bei Hosting ohne GitHub Pages:
@@ -808,6 +802,8 @@ const orteDaten = [
   { tag: 4, zeit: "17:46", name: "Vârful Iezerul Caprei", hoehe: 2417, pos: "o" },
   { tag: 4, zeit: "18:26", name: "Lacul Capra", hoehe: 2230, pos: "auto" },
   { tag: 5, zeit: "17:03", name: "Viștea Mare", hoehe: 2524, pos: "o" },
+  { tag: 5, zeit: "17:53", name: "Iezerul Moldoveanului", hoehe: 2159, pos: "auto" },
+  { tag: 6, zeit: "09:20", name: "Refugiul Viștea Mare", hoehe: 2310, pos: "auto" },
   { tag: 6, zeit: "15:33", name: "Cabana Valea Sambetei", hoehe: 1401, pos: "auto" },
   { tag: 7, zeit: "11:16", name: "Sâmbăta de Sus", pos: "auto" }
 ];
@@ -923,7 +919,7 @@ function baueGeometrie() {
     x += w + LUECKE;
     kmSumme += km;
   });
-  const sibiuX = x + SIBIU_BREITE / 2;                               // Punkt "Sibiu" hinter dem letzten Tag
+  const sibiuX = x;                                                  // gleicher Abstand zur Trennlinie wie der Endpunkt von Tag 7 (LUECKE/2)                               // Punkt "Sibiu" hinter dem letzten Tag
   const breite = x + SIBIU_BREITE;
   const sepX = (n) => (n < TAGE_ANZAHL ? tage[n].x0 - LUECKE / 2 : tage[TAGE_ANZAHL - 1].x1 + LUECKE / 2);   // Nacht n = zwischen Tag n und n+1
   const alleH = hoehenDaten.map((p) => p.hoehe);
@@ -1500,16 +1496,24 @@ function zeigeFoto() {
   img.alt = txt;
   img.src = f.fullUrl;
   const t = $("ovText");
-  if (f.beschreibung) { t.textContent = f.beschreibung; t.hidden = false; } else t.hidden = true;
+  if (viewerTop5) {
+    const d = fotoDetails(f);
+    t.textContent = ""; t.hidden = false;
+    if (f.beschreibung) { const b = html("strong", null, t, f.beschreibung); b.style.display = "block"; }
+    html("span", null, t, d);
+    $("status").textContent = txt + ". " + d;
+  } else if (f.beschreibung) { t.textContent = f.beschreibung; t.hidden = false; } else t.hidden = true;
+  $("ovMehr").hidden = !(viewerTop5 && fotoIndex === n - 1);
   const z = $("ovZaehler");
   z.hidden = n < 2;
   z.textContent = (fotoIndex + 1) + " / " + n;
   $("ovPrev").hidden = $("ovNext").hidden = n < 2;
   $("ovPrev").disabled = fotoIndex === 0;
   $("ovNext").disabled = fotoIndex === n - 1;
-  $("status").textContent = txt;
+  if (!viewerTop5) $("status").textContent = txt;
 }
-function oeffneFoto(liste, opener, start) {
+function oeffneFoto(liste, opener, start, top5) {
+  viewerTop5 = !!top5;
   fotoListe = liste;
   fotoIndex = start || 0;
   zeigeFoto();
@@ -1535,38 +1539,34 @@ $("overlay").addEventListener("touchend", (e) => {
    FOTOS LADEN
    ===================================================================== */
 
-/* ---- Top 5 Pics (Handy) ---- */
-let top5Pool = [], top5Zeiger = 0, top5Liste = [];
+/* ---- Top 5 Pics: zufällige Fotos direkt im Vollbild, 5 Stück zum Durchklicken ---- */
+let top5Pool = [], top5Zeiger = 0, viewerTop5 = false, top5Meldung = null;
 function mische(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
-function top5Neu() { top5Pool = mische(fotoDaten); top5Zeiger = 0; top5Liste = []; }
-function top5Weiter() {
-  if (top5Zeiger >= top5Pool.length) top5Pool = mische(fotoDaten), top5Zeiger = 0;
-  top5Liste = top5Pool.slice(top5Zeiger, top5Zeiger + 5);
+function top5Satz() {
+  if (top5Zeiger >= top5Pool.length) { top5Pool = mische(fotoDaten); top5Zeiger = 0; }
+  const l = top5Pool.slice(top5Zeiger, top5Zeiger + 5);
   top5Zeiger += 5;
+  return l;
 }
-function zeigeTop5() {
-  const r = $("top5Reihe");
-  r.innerHTML = "";
-  if (!top5Liste.length) { html("span", { "class": "top5-leer" }, r, "Noch keine Fotos."); return; }
-  top5Liste.forEach((f, i) => {
-    const b = html("button", { type: "button", "class": "top5-foto", "aria-label": "Foto vergrößern: " + fotoTitel(f) }, r);
-    const im = html("img", { src: f.thumbUrl, alt: "" }, b);
-    b.addEventListener("click", () => oeffneFoto(top5Liste, b, i));
-  });
-  if (fotoDaten.length > 5) {
-    const m = html("button", { type: "button", "class": "top5-mehr" }, r, "weitere 5 Bilder");
-    m.addEventListener("click", () => { top5Weiter(); zeigeTop5(); r.scrollLeft = 0; });
+function top5Start(opener) {
+  if (!fotoDaten.length) {
+    const m = $("top5Leer");
+    m.textContent = "Noch keine Fotos.";
+    clearTimeout(top5Meldung); top5Meldung = setTimeout(() => { m.textContent = ""; }, 3500);
+    return;
   }
+  top5Pool = mische(fotoDaten); top5Zeiger = 0;
+  oeffneFoto(top5Satz(), opener, 0, true);
 }
-function neuLayout() { const sl = scroller.scrollLeft; zeichne(); scroller.scrollLeft = sl; }
-$("top5Btn").addEventListener("click", () => {
-  const p = $("top5"), offen = p.hidden;
-  if (offen) { top5Neu(); top5Weiter(); zeigeTop5(); }
-  p.hidden = !offen;
-  $("top5Btn").setAttribute("aria-expanded", String(offen));
-  neuLayout();
-});
-function top5Aktualisieren() { if (!$("top5").hidden) { top5Neu(); top5Weiter(); zeigeTop5(); } }
+function fotoDetails(f) {           // Datum, Zeit und Höhe für die Top-5-Ansicht
+  if (f.art === "sibiu") return "Sibiu";
+  if (f.art === "astro") return fotoTitel(f);
+  const t = G.tage[f.tag - 1];
+  const h = t && t.pts.length ? Math.round(nachZeit(t.pts, zuMinuten(f.zeit)).hoehe) : null;
+  return tagLabel(f.tag) + " · " + f.zeit + " Uhr" + (h != null ? " · " + zahl(h, 0) + " m" : "");
+}
+$("top5Btn").addEventListener("click", () => top5Start($("top5Btn")));
+$("ovMehr").addEventListener("click", () => { const l = top5Satz(); fotoListe = l; fotoIndex = 0; zeigeFoto(); $("ovNext").focus(); });
 
 /* ---- Zoom mit zwei Fingern (Handy) ---- */
 let pinch = null, pinchRaf = null;
@@ -1638,7 +1638,6 @@ async function ladeFotos() {
   hinweis.textContent = (!fotoDaten.length && fehler.length >= 2) ? "Fotoliste nicht erreichbar (" + fehler.join("; ") + ")" : "";
   hinweis.hidden = !hinweis.textContent;
   zeichne();
-  top5Aktualisieren();
 }
 
 /* Escape blendet den Strich aus, wenn kein Dialog offen ist */
