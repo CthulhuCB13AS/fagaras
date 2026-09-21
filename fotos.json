@@ -878,6 +878,15 @@
       "beschreibung": "",
       "zeitstempel": "09.09.2026 22:00",
       "nacht": 5
+    },
+    {
+      "id": "astro5-mubbobqs-1",
+      "art": "astro",
+      "thumbUrl": "fotos/astro5-mubbobqs-1_t.jpg",
+      "fullUrl": "fotos/astro5-mubbobqs-1.jpg",
+      "beschreibung": "Orion im Morgenlicht.",
+      "zeitstempel": "10.09.2026 05:42",
+      "nacht": 5
     }
   ]
 }
