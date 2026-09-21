@@ -783,6 +783,15 @@
       "tag": 1,
       "zeit": "10:20",
       "zeitstempel": "05.09.2026 10:20"
+    },
+    {
+      "id": "astro1-mub93ct5-1",
+      "art": "astro",
+      "thumbUrl": "fotos/astro1-mub93ct5-1_t.jpg",
+      "fullUrl": "fotos/astro1-mub93ct5-1.jpg",
+      "beschreibung": "",
+      "zeitstempel": "05.09.2026 23:15",
+      "nacht": 1
     }
   ]
 }
