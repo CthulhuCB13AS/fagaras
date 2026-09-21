@@ -812,6 +812,15 @@
       "tag": 2,
       "zeit": "14:20",
       "zeitstempel": "06.09.2026 14:20"
+    },
+    {
+      "id": "astro2-muba1896-1",
+      "art": "astro",
+      "thumbUrl": "fotos/astro2-muba1896-1_t.jpg",
+      "fullUrl": "fotos/astro2-muba1896-1.jpg",
+      "beschreibung": "Wenn man genau hinsieht, sieht man sogar die Andromeda-Galaxie!",
+      "zeitstempel": "07.09.2026 03:29",
+      "nacht": 2
     }
   ]
 }
