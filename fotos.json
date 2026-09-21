@@ -860,6 +860,15 @@
       "tag": 5,
       "zeit": "09:42",
       "zeitstempel": "09.09.2026 09:42"
+    },
+    {
+      "id": "astro5-mubaz6j5-1",
+      "art": "astro",
+      "thumbUrl": "fotos/astro5-mubaz6j5-1_t.jpg",
+      "fullUrl": "fotos/astro5-mubaz6j5-1.jpg",
+      "beschreibung": "",
+      "zeitstempel": "09.09.2026 22:00",
+      "nacht": 5
     }
   ]
 }
